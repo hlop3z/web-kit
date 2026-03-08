@@ -18,8 +18,8 @@ export const use_files = () => {
     ctx.files = create_file_registry();
   });
 
-  afterEach(() => {
-    ctx.files.clear();
+  afterEach(async () => {
+    await ctx.files.clear();
     teardown_mock();
   });
 

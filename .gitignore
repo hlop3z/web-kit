@@ -5,5 +5,7 @@ Thumbs.db
 *.log
 
 # Custom
-backend/
 .legacy/
+backend/
+dnd-research.md
+plan-*.md

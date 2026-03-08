@@ -84,6 +84,9 @@ const mock_monaco = {
   Uri: {
     parse: (str) => create_mock_uri(str),
   },
+  _defined_themes: new Map(),
+  _registered_languages: [],
+  _monarch_providers: new Map(),
   editor: {
     createModel: (content, language, uri) => {
       return create_mock_model(content, language, uri);
@@ -93,6 +96,9 @@ const mock_monaco = {
     },
     setTheme: () => {},
     setModelLanguage: () => {},
+    defineTheme: (name, data) => {
+      mock_monaco._defined_themes.set(name, data);
+    },
     create: (element, opts) => {
       const actions = new Map();
       const commands = [];
@@ -123,6 +129,12 @@ const mock_monaco = {
     },
   },
   languages: {
+    register: (lang) => {
+      mock_monaco._registered_languages.push(lang);
+    },
+    setMonarchTokensProvider: (id, config) => {
+      mock_monaco._monarch_providers.set(id, config);
+    },
     typescript: {
       JsxEmit: { None: 0, Preserve: 1, React: 2, ReactNative: 3, ReactJSX: 4, ReactJSXDev: 5 },
       ScriptTarget: { ES3: 0, ES5: 1, ES2015: 2, ES2016: 3, ES2017: 4, ES2018: 5, ES2019: 6, ES2020: 7, ES2021: 8, ES2022: 9, ESNext: 99 },
@@ -144,6 +156,9 @@ const mock_monaco = {
 
 export const setup_mock = () => {
   models.clear();
+  mock_monaco._defined_themes.clear();
+  mock_monaco._registered_languages.length = 0;
+  mock_monaco._monarch_providers.clear();
   globalThis.XkinEditor = mock_monaco;
   globalThis.XkinTools = {
     format: async ({ source }) => source.trim() + "\n",

@@ -88,12 +88,12 @@ Xkin.set_compiler({
 
 String values map to Monaco's TypeScript enums:
 
-| Option             | Accepted strings                                                                     |
-| ------------------ | ------------------------------------------------------------------------------------ |
-| `jsx`              | `"None"`, `"Preserve"`, `"React"`, `"ReactNative"`, `"ReactJSX"`, `"ReactJSXDev"`   |
-| `target`           | `"ES3"`, `"ES5"`, `"ES2015"` – `"ES2022"`, `"ESNext"`                               |
-| `module`           | `"None"`, `"CommonJS"`, `"AMD"`, `"UMD"`, `"System"`, `"ES2015"`, `"ESNext"`, etc.   |
-| `moduleResolution` | `"Classic"`, `"NodeJs"`, `"Node16"`, `"NodeNext"`, `"Bundler"`                       |
+| Option             | Accepted strings                                                                   |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| `jsx`              | `"None"`, `"Preserve"`, `"React"`, `"ReactNative"`, `"ReactJSX"`, `"ReactJSXDev"`  |
+| `target`           | `"ES3"`, `"ES5"`, `"ES2015"` – `"ES2022"`, `"ESNext"`                              |
+| `module`           | `"None"`, `"CommonJS"`, `"AMD"`, `"UMD"`, `"System"`, `"ES2015"`, `"ESNext"`, etc. |
+| `moduleResolution` | `"Classic"`, `"NodeJs"`, `"Node16"`, `"NodeNext"`, `"Bundler"`                     |
 
 ---
 
@@ -560,6 +560,238 @@ const { css, tokens } = await Xkin.css_modules({
   idSize: 8,
 });
 // tokens => { title: "app__title__a1b2c3d4" }
+```
+
+---
+
+### DnD (Page Builder)
+
+A drag-and-drop page builder system built on [@dnd-kit/dom](https://dndkit.com/). Pages are modeled as a vertical stack of **Sections**, each containing **Blocks**. The entire document tree is reactive via nanostores atoms.
+
+#### Setup
+
+```js
+// Initialize with built-in section/block types
+Xkin.dnd.init({ builtins: true });
+
+// Or with @dnd-kit engine for interactive drag-and-drop
+Xkin.dnd.init({
+  container: document.getElementById("editor"),
+  builtins: true,
+});
+```
+
+#### Document Operations
+
+```js
+// Add sections and blocks
+await Xkin.dnd.add_section("hero");
+const section_id = Xkin.$document.get().sections[0].id;
+
+await Xkin.dnd.add_block(section_id, "text", { template: { text: "Hello" } });
+await Xkin.dnd.add_block(section_id, "image", { template: { src: "pic.jpg" } });
+
+// Reorder
+await Xkin.dnd.move_section(section_id, 2);
+await Xkin.dnd.move_block(block_id, target_section_id, 0);
+
+// Update content and settings
+await Xkin.dnd.update_block(section_id, block_id, { text: "Updated" });
+await Xkin.dnd.update_section_settings(section_id, { alignment: "center" });
+await Xkin.dnd.update_block_settings(section_id, block_id, {
+  style: "outline",
+});
+
+// Remove
+await Xkin.dnd.remove_block(section_id, block_id);
+await Xkin.dnd.remove_section(section_id);
+```
+
+#### Undo / Redo
+
+Every operation is undoable.
+
+```js
+Xkin.dnd.undo();
+Xkin.dnd.redo();
+
+Xkin.dnd.$can_undo.subscribe((can) => update_button("undo", can));
+Xkin.dnd.$can_redo.subscribe((can) => update_button("redo", can));
+```
+
+#### Selection
+
+```js
+Xkin.dnd.select("block", [block_id]);
+Xkin.dnd.select("section", [section_id]);
+await Xkin.dnd.delete_selected();
+Xkin.dnd.clear_selection();
+```
+
+#### Custom Section & Block Types
+
+Register your own types with render functions, settings schemas, and constraints.
+
+```js
+Xkin.dnd.register_section({
+  type: "gallery",
+  label: "Gallery",
+  icon: "image",
+  category: "media",
+  defaults: {},
+  constraints: {
+    max_blocks: 20,
+    allowed_blocks: ["image", "video"],
+    min_blocks: 0,
+  },
+  settings: {
+    columns: {
+      type: "select",
+      label: "Columns",
+      default: "3",
+      options: [
+        { label: "2", value: "2" },
+        { label: "3", value: "3" },
+        { label: "4", value: "4" },
+      ],
+    },
+  },
+  render: (section, { h, render_blocks }) =>
+    h(
+      "div",
+      { class: "gallery", style: `columns:${section.settings.columns || 3}` },
+      render_blocks(),
+    ),
+});
+
+Xkin.dnd.register_block({
+  type: "quote",
+  label: "Quote",
+  icon: "quote",
+  category: "content",
+  defaults: { text: "", author: "" },
+  render: (block, { h }) =>
+    h(
+      "blockquote",
+      null,
+      h("p", null, block.content.text),
+      h("cite", null, block.content.author),
+    ),
+});
+```
+
+#### Built-in Types
+
+Register all built-in types at once, or cherry-pick:
+
+```js
+// Register all (returns dispose function)
+const dispose = Xkin.dnd.register_builtins();
+
+// Or via init
+Xkin.dnd.init({ builtins: true });
+```
+
+**Sections:** `generic`, `hero`, `features`, `content`, `footer`
+**Blocks:** `heading`, `text`, `image`, `button`, `divider`, `video`, `code`
+
+#### Rendering
+
+Render the document model to Preact VNodes or HTML.
+
+```js
+const vnode = Xkin.dnd.render();
+const html = Xkin.dnd.export_html();
+```
+
+#### @dnd-kit Engine
+
+Direct access to the @dnd-kit/dom integration for wiring drag-and-drop to DOM elements.
+
+```js
+// Create sortable sections in a sidebar list
+Xkin.dnd.engine.create_section_sortable(element, {
+  id: section.id,
+  index: 0,
+  handle: handleEl,
+});
+
+// Create sortable blocks (cross-container transfer via group="blocks")
+Xkin.dnd.engine.create_block_sortable(element, {
+  id: block.id,
+  index: 0,
+  section_id: section.id,
+});
+
+// Palette items (clone feedback — originals stay in palette)
+Xkin.dnd.engine.create_palette_item(element, {
+  block_type: "text",
+  template: { text: "" },
+});
+
+// Section drop zones
+Xkin.dnd.engine.create_section_drop_zone(element, {
+  section_id: section.id,
+});
+
+// Listen to drag events
+Xkin.dnd.engine.on("dragstart", (event) => {
+  /* ... */
+});
+Xkin.dnd.engine.on("dragend", (event) => {
+  /* ... */
+});
+```
+
+#### Visual Feedback
+
+Preact components for drop indicators, drag previews, and drop targets.
+
+```js
+const { h } = Xkin.engine;
+const { DropIndicator, DragOverlay, DropTarget } = Xkin.dnd.feedback;
+
+// Drop indicator line
+h(DropIndicator, { position: "horizontal" });
+
+// Drag preview overlay
+h(DragOverlay, null, h("div", null, "Dragging..."));
+
+// Drop target highlight
+h(DropTarget, { active: is_over }, children);
+
+// Inject CSS (data attributes: [data-xkin-dragging], [data-xkin-drop-target], [data-xkin-drag-handle])
+const remove_css = Xkin.dnd.feedback.inject_css();
+```
+
+#### Hooks
+
+Plugins can intercept DnD operations via filter and action hooks.
+
+```js
+// Filter hook — modify or cancel (throw to cancel)
+Xkin.hooks.add("dnd.before_add_block", (params) => {
+  if (params.block_type === "banned") throw new Error("Not allowed");
+  return params;
+});
+
+// Action hook — fire-and-forget
+Xkin.hooks.add("dnd.after_drop", ({ source, target }) => {
+  console.log("Dropped:", source, "→", target);
+});
+```
+
+Hook names: `dnd.before_*` / `dnd.after_*` for `reorder_section`, `reorder_block`, `transfer_block`, `add_block`, `add_section`, `delete_block`, `delete_section`, plus `dnd.after_drag_start`, `dnd.after_drag_cancel`, `dnd.after_drop`.
+
+#### Reactive Stores
+
+```js
+Xkin.$document.subscribe((doc) => render_page(doc));
+Xkin.$sections.subscribe((sections) => update_sidebar(sections));
+Xkin.$selection.subscribe((sel) => highlight(sel));
+Xkin.$drag_state.subscribe((drag) => update_cursor(drag));
+Xkin.dnd.$section_types.subscribe((types) => update_palette(types));
+Xkin.dnd.$block_types.subscribe((types) => update_block_palette(types));
 ```
 
 ---

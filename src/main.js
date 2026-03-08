@@ -14,6 +14,11 @@ import {
 import { create_workspace_manager } from "./workspace.js";
 import persistence from "./persistence.js";
 import { create_keys_manager } from "./keys.js";
+import { create_hook_system } from "./hooks.js";
+import { create_plugin_registry } from "./plugins.js";
+import { register_contribution_handlers } from "./contributions.js";
+import { create_ui_slot_manager } from "./ui_slots.js";
+import { create_dnd, $document, $sections, $selection, $drag_state } from "./dnd.js";
 
 const get_editor = () => globalThis.XkinEditor;
 const get_tools = () => globalThis.XkinTools;
@@ -123,9 +128,40 @@ const sync_types = (libs) => {
 
 /* ── Initialize modules ───────────────────────────── */
 
-const file_registry = create_file_registry();
-const workspace_manager = create_workspace_manager(file_registry);
+const hook_system = create_hook_system();
+const file_registry = create_file_registry(hook_system);
+const workspace_manager = create_workspace_manager(file_registry, hook_system);
 const keys_manager = create_keys_manager();
+const ui_slot_manager = create_ui_slot_manager();
+const plugin_registry = create_plugin_registry(hook_system, ui_slot_manager);
+const contribution_targets = register_contribution_handlers(plugin_registry, keys_manager, hook_system, ui_slot_manager);
+const dnd_manager = create_dnd(hook_system, plugin_registry);
+
+/* ── Lazy on_language activation via file hooks ────── */
+
+const LANG_EXT_MAP = {
+  ".js": "javascript", ".jsx": "javascript", ".mjs": "javascript",
+  ".ts": "typescript", ".tsx": "typescript",
+  ".css": "css", ".scss": "scss", ".sass": "scss",
+  ".html": "html", ".htm": "html",
+  ".json": "json", ".md": "markdown", ".py": "python",
+  ".rs": "rust", ".go": "go", ".java": "java",
+  ".rb": "ruby", ".php": "php", ".c": "c", ".cpp": "cpp",
+  ".yaml": "yaml", ".yml": "yaml", ".toml": "toml",
+  ".xml": "xml", ".svg": "svg", ".sql": "sql",
+};
+
+const detect_language = (path) => {
+  if (!path) return null;
+  const dot = path.lastIndexOf(".");
+  if (dot < 0) return null;
+  return LANG_EXT_MAP[path.slice(dot).toLowerCase()] || null;
+};
+
+hook_system.add("file.after_create", (file) => {
+  const lang = detect_language(file?.path);
+  if (lang) plugin_registry.trigger_activation("on_language", lang);
+}, 100); // Low priority — runs after other hooks
 
 class Xkin {
   static $types = $types;
@@ -145,6 +181,22 @@ class Xkin {
   static files = file_registry;
   static persistence = persistence;
   static keys = keys_manager;
+  static hooks = hook_system;
+  static plugins = plugin_registry;
+  static ui = ui_slot_manager;
+  static commands = contribution_targets;
+  static run_command = contribution_targets.run_command;
+  static detect_language = detect_language;
+
+  /* ── DnD (Page Builder) ──────────────────────────── */
+
+  static $document = $document;
+  static $sections = $sections;
+  static $selection = $selection;
+  static $drag_state = $drag_state;
+  static $section_types = dnd_manager.$section_types;
+  static $block_types = dnd_manager.$block_types;
+  static dnd = dnd_manager;
 
   /* ── Editor ──────────────────────────────────────── */
 

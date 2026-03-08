@@ -15,30 +15,30 @@ beforeEach(() => {
   ws = create_workspace_manager(files);
 });
 
-afterEach(() => {
-  files.clear();
+afterEach(async () => {
+  await files.clear();
   teardown_mock();
 });
 
 describe("create / switch", () => {
-  it("creates and activates workspace", () => {
-    const w = ws.create("w1", { name: "P1" });
+  it("creates and activates workspace", async () => {
+    const w = await ws.create("w1", { name: "P1" });
     expect(w.id).toBe("w1");
     expect($workspace.get()).toEqual(w);
   });
 
-  it("creates without activating", () => {
-    ws.create("w1");
-    ws.create("w2", { activate: false });
+  it("creates without activating", async () => {
+    await ws.create("w1");
+    await ws.create("w2", { activate: false });
     expect($workspace.get().id).toBe("w1");
   });
 
   it("snapshots current on create, restores on switch", async () => {
-    ws.create("w1");
-    files.create("/a.ts", "from_w1");
+    await ws.create("w1");
+    await files.create("/a.ts", "from_w1");
 
-    ws.create("w2");
-    files.create("/b.ts", "from_w2");
+    await ws.create("w2");
+    await files.create("/b.ts", "from_w2");
     expect(files.read("/a.ts")).toBeNull();
 
     await ws.switch("w1");
@@ -49,8 +49,8 @@ describe("create / switch", () => {
 
   it("switch returns null for unknown, no-op for current", async () => {
     expect(await ws.switch("nope")).toBeNull();
-    ws.create("w1");
-    files.create("/a.ts", "code");
+    await ws.create("w1");
+    await files.create("/a.ts", "code");
     const r = await ws.switch("w1");
     expect(r.id).toBe("w1");
     expect(files.read("/a.ts")).toBe("code");
@@ -60,8 +60,8 @@ describe("create / switch", () => {
 describe("current / list / update / delete", () => {
   it("current, list, update", async () => {
     expect(ws.current()).toBeNull();
-    ws.create("w1", { name: "Old" });
-    ws.create("w2", { activate: false });
+    await ws.create("w1", { name: "Old" });
+    await ws.create("w2", { activate: false });
     expect(ws.current().id).toBe("w1");
     expect(await ws.list()).toHaveLength(2);
 
@@ -72,8 +72,8 @@ describe("current / list / update / delete", () => {
   });
 
   it("delete clears active workspace", async () => {
-    ws.create("w1");
-    files.create("/a.ts", "code");
+    await ws.create("w1");
+    await files.create("/a.ts", "code");
     await ws.delete("w1");
     expect($workspace.get()).toBeNull();
     expect($files.get()).toHaveLength(0);
@@ -82,8 +82,8 @@ describe("current / list / update / delete", () => {
 
 describe("snapshot / mount", () => {
   it("captures and restores full state", async () => {
-    ws.create("w1");
-    files.create("/a.ts", "code");
+    await ws.create("w1");
+    await files.create("/a.ts", "code");
     $active_file.set("/a.ts");
     $open_files.set(["/a.ts"]);
 
@@ -92,7 +92,7 @@ describe("snapshot / mount", () => {
     expect(snap.files["/a.ts"]).toBe("code");
     expect(snap.active_file).toBe("/a.ts");
 
-    ws.create("w2");
+    await ws.create("w2");
     await ws.mount(snap);
     expect(files.read("/a.ts")).toBe("code");
   });
@@ -104,9 +104,9 @@ describe("snapshot / mount", () => {
 
 describe("to_json / from_json", () => {
   it("round-trips", async () => {
-    ws.create("w1");
-    files.create("/a.ts", "aaa");
-    files.create("/b.ts", "bbb");
+    await ws.create("w1");
+    await files.create("/a.ts", "aaa");
+    await files.create("/b.ts", "bbb");
     const json = ws.to_json();
 
     await ws.from_json("w2", json, { name: "Imported" });
@@ -120,8 +120,8 @@ describe("events", () => {
   it("fires create, switch, delete", async () => {
     const log = [];
     ws.on("*", (d) => log.push(d.event));
-    ws.create("w1");
-    ws.create("w2");
+    await ws.create("w1");
+    await ws.create("w2");
     await ws.switch("w1");
     await ws.delete("w1");
     expect(log).toContain("create");
@@ -140,8 +140,8 @@ describe("auto_save", () => {
   });
 
   it("saves and marks clean when dirty", async () => {
-    ws.create("w1");
-    files.create("/a.ts", "code");
+    await ws.create("w1");
+    await files.create("/a.ts", "code");
 
     const saved = [];
     const stop = ws.auto_save({
@@ -170,8 +170,8 @@ describe("auto_save", () => {
   });
 
   it("returns dispose that stops the timer", async () => {
-    ws.create("w1");
-    files.create("/a.ts", "code");
+    await ws.create("w1");
+    await files.create("/a.ts", "code");
 
     const saved = [];
     const stop = ws.auto_save({
@@ -187,8 +187,8 @@ describe("auto_save", () => {
   });
 
   it("emits auto_save event", async () => {
-    ws.create("w1");
-    files.create("/a.ts", "code");
+    await ws.create("w1");
+    await files.create("/a.ts", "code");
 
     const events = [];
     ws.on("auto_save", (d) => events.push(d));
@@ -207,8 +207,8 @@ describe("auto_save", () => {
   });
 
   it("does not double-save on rapid ticks", async () => {
-    ws.create("w1");
-    files.create("/a.ts", "code");
+    await ws.create("w1");
+    await files.create("/a.ts", "code");
 
     let count = 0;
     const stop = ws.auto_save({
@@ -244,8 +244,8 @@ describe("format_on_save", () => {
   });
 
   it("formats dirty files on manual save", async () => {
-    ws.create("w1");
-    files.create("/a.ts", "  code  ");
+    await ws.create("w1");
+    await files.create("/a.ts", "  code  ");
     files.get("/a.ts").setValue("  dirty  ");
     expect($is_dirty.get()).toBe(true);
 
@@ -258,8 +258,8 @@ describe("format_on_save", () => {
 
   it("formats dirty files on auto_save tick", async () => {
     vi.useFakeTimers();
-    ws.create("w1");
-    files.create("/a.ts", "code");
+    await ws.create("w1");
+    await files.create("/a.ts", "code");
 
     ws.set_format_on_save(true);
     const stop = ws.auto_save({
@@ -276,8 +276,8 @@ describe("format_on_save", () => {
   });
 
   it("skips format when disabled", async () => {
-    ws.create("w1");
-    files.create("/a.ts", "  code  ");
+    await ws.create("w1");
+    await files.create("/a.ts", "  code  ");
     files.get("/a.ts").setValue("  dirty  ");
 
     ws.set_format_on_save(false);
