@@ -73,14 +73,27 @@ Xkin.add_types([{ path: "xkin.d.ts", content: types }]);
 
 ### Compiler
 
+Configure TypeScript compiler options. Enum values accept readable strings or numeric values.
+
 ```js
 Xkin.set_compiler({
-  jsx: 2, // JsxEmit.React
+  jsx: "React",
   jsxFactory: "h",
   jsxFragmentFactory: "Fragment",
-  target: 99, // ScriptTarget.ESNext
+  target: "ESNext",
+  module: "ESNext",
+  moduleResolution: "NodeJs",
 });
 ```
+
+String values map to Monaco's TypeScript enums:
+
+| Option             | Accepted strings                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------ |
+| `jsx`              | `"None"`, `"Preserve"`, `"React"`, `"ReactNative"`, `"ReactJSX"`, `"ReactJSXDev"`   |
+| `target`           | `"ES3"`, `"ES5"`, `"ES2015"` – `"ES2022"`, `"ESNext"`                               |
+| `module`           | `"None"`, `"CommonJS"`, `"AMD"`, `"UMD"`, `"System"`, `"ES2015"`, `"ESNext"`, etc.   |
+| `moduleResolution` | `"Classic"`, `"NodeJs"`, `"Node16"`, `"NodeNext"`, `"Bundler"`                       |
 
 ---
 

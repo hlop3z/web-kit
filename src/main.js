@@ -264,8 +264,28 @@ class Xkin {
 
   static set_compiler(opts) {
     const monaco = get_editor();
-    monaco.languages.typescript.typescriptDefaults.setCompilerOptions(opts);
-    monaco.languages.typescript.javascriptDefaults.setCompilerOptions(opts);
+    const ts = monaco.languages.typescript;
+
+    const resolve = (map, value) =>
+      typeof value === "string" ? map[value] ?? value : value;
+
+    const resolved = { ...opts };
+
+    if ("jsx" in resolved) {
+      resolved.jsx = resolve(ts.JsxEmit, resolved.jsx);
+    }
+    if ("target" in resolved) {
+      resolved.target = resolve(ts.ScriptTarget, resolved.target);
+    }
+    if ("module" in resolved) {
+      resolved.module = resolve(ts.ModuleKind, resolved.module);
+    }
+    if ("moduleResolution" in resolved) {
+      resolved.moduleResolution = resolve(ts.ModuleResolutionKind, resolved.moduleResolution);
+    }
+
+    ts.typescriptDefaults.setCompilerOptions(resolved);
+    ts.javascriptDefaults.setCompilerOptions(resolved);
   }
 
   /* ── Tools ──────────────────────────────────────── */

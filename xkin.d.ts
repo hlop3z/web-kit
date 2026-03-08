@@ -237,6 +237,27 @@ declare namespace Xkin {
     [key: string]: any;
   }
 
+  /* ── Compiler Options ─────────────────────────────── */
+
+  type JsxEmit = "None" | "Preserve" | "React" | "ReactNative" | "ReactJSX" | "ReactJSXDev" | number;
+  type ScriptTarget = "ES3" | "ES5" | "ES2015" | "ES2016" | "ES2017" | "ES2018" | "ES2019" | "ES2020" | "ES2021" | "ES2022" | "ESNext" | number;
+  type ModuleKind = "None" | "CommonJS" | "AMD" | "UMD" | "System" | "ES2015" | "ES2020" | "ESNext" | "Node16" | "NodeNext" | number;
+  type ModuleResolutionKind = "Classic" | "NodeJs" | "Node16" | "NodeNext" | "Bundler" | number;
+
+  interface CompilerOptions {
+    jsx?: JsxEmit;
+    jsxFactory?: string;
+    jsxFragmentFactory?: string;
+    target?: ScriptTarget;
+    module?: ModuleKind;
+    moduleResolution?: ModuleResolutionKind;
+    allowJs?: boolean;
+    allowNonTsExtensions?: boolean;
+    baseUrl?: string;
+    typeRoots?: string[];
+    [key: string]: any;
+  }
+
   /* ── Tool Args ──────────────────────────────────── */
 
   interface TsxArgs {
@@ -359,7 +380,7 @@ declare var Xkin: {
   get_types(): Xkin.TypeLib[];
 
   // Compiler
-  set_compiler(opts: Record<string, any>): void;
+  set_compiler(opts: Xkin.CompilerOptions): void;
 
   // Tools
   tsx(args: Xkin.TsxArgs): Promise<Xkin.TsxResult>;
