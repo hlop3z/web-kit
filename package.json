@@ -1,0 +1,70 @@
+{
+  "name": "xkin",
+  "version": "1.0.0",
+  "description": "Browser-ready bundles for Monaco Editor, Babel, Prettier, SASS, CSSO, Terser & Showdown",
+  "main": "dist/xkin.min.js",
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "build": "npm run build:tools && npm run build:styles && npm run build:engine && npm run build:editor && npm run build:main",
+    "build:engine": "cross-env NODE_OPTIONS=--max-old-space-size=4096 webpack --config webpack.config.mjs --config-name engine --mode production",
+    "build:main": "cross-env NODE_OPTIONS=--max-old-space-size=4096 webpack --config webpack.config.mjs --config-name main --mode production",
+    "build:editor": "cross-env NODE_OPTIONS=--max-old-space-size=4096 webpack --config webpack.config.mjs --config-name editor --mode production",
+    "build:tools": "cross-env NODE_OPTIONS=--max-old-space-size=4096 webpack --config webpack.config.mjs --config-name tools --mode production",
+    "build:styles": "cross-env NODE_OPTIONS=--max-old-space-size=4096 webpack --config webpack.config.mjs --config-name styles --mode production",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "monaco-editor",
+    "babel",
+    "prettier",
+    "sass",
+    "csso",
+    "terser",
+    "showdown",
+    "preact",
+    "browser",
+    "bundler"
+  ],
+  "author": "hlop3z",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hlop3z/xkin.git"
+  },
+  "homepage": "https://github.com/hlop3z/xkin#readme",
+  "bugs": {
+    "url": "https://github.com/hlop3z/xkin/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "pnpm@10.23.0",
+  "dependencies": {
+    "@babel/standalone": "7.29.1",
+    "csso": "5.0.5",
+    "monaco-editor": "0.55.1",
+    "nanostores": "1.1.1",
+    "postcss": "8.5.8",
+    "postcss-modules-local-by-default": "4.2.0",
+    "postcss-modules-scope": "3.2.1",
+    "preact": "^10.28.4",
+    "preact-render-to-string": "^6.6.6",
+    "prettier": "3.8.1",
+    "sass.js": "0.11.1",
+    "showdown": "2.1.0",
+    "terser": "5.46.0"
+  },
+  "devDependencies": {
+    "cross-env": "10.1.0",
+    "css-loader": "7.1.4",
+    "html-webpack-plugin": "5.6.6",
+    "monaco-editor-webpack-plugin": "7.1.1",
+    "style-loader": "4.0.0",
+    "terser-webpack-plugin": "5.3.17",
+    "webpack": "5.105.4",
+    "webpack-cli": "6.0.1",
+    "webpack-dev-server": "5.2.3"
+  }
+}

@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Xkin Demo</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #569cd6;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      color: #808080;
+      margin-bottom: 20px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      padding: 10px 20px;
+      background: #2d2d2d;
+      border: none;
+      color: #808080;
+      cursor: pointer;
+      border-radius: 4px 4px 0 0;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .tab.active {
+      background: #3c3c3c;
+      color: #d4d4d4;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      color: #9cdcfe;
+      margin-bottom: 6px;
+    }
+
+    .editor-box {
+      width: 100%;
+      height: 350px;
+      border: 1px solid #3c3c3c;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 8px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      background: #0e639c;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1177bb;
+    }
+
+    select {
+      padding: 6px 10px;
+      font-size: 14px;
+      background: #3c3c3c;
+      color: #d4d4d4;
+      border: 1px solid #555;
+      border-radius: 4px;
+    }
+
+    .option-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .option-group label {
+      font-weight: normal;
+      color: #d4d4d4;
+      margin-bottom: 0;
+    }
+
+    .status {
+      margin-top: 8px;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 13px;
+      display: none;
+    }
+
+    .status.success {
+      display: block;
+      background: #2d4a3e;
+      color: #4ec9b0;
+    }
+
+    .status.error {
+      display: block;
+      background: #4a2d2d;
+      color: #f48771;
+      white-space: pre-wrap;
+    }
+
+    #editor-container {
+      width: 100%;
+      height: 400px;
+      border: 1px solid #3c3c3c;
+      border-radius: 4px;
+    }
+
+    .preview-frame {
+      border: 1px solid #3c3c3c;
+      border-radius: 4px;
+      background: white;
+      width: 100%;
+      height: 350px;
+    }
+
+    .section-label {
+      font-weight: 600;
+      color: #c586c0;
+      margin: 12px 0 6px;
+      font-size: 13px;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Xkin Demo</h1>
+  <p class="subtitle">Monaco Editor + Babel + Prettier + SASS + CSSO + Terser + Showdown</p>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="editor">Editor</button>
+    <button class="tab" data-tab="tsx">TSX</button>
+    <button class="tab" data-tab="format">Prettier</button>
+    <button class="tab" data-tab="sass">SASS</button>
+    <button class="tab" data-tab="cssmod">CSS Modules</button>
+    <button class="tab" data-tab="markdown">Markdown</button>
+    <button class="tab" data-tab="mdx">MDX</button>
+  </div>
+
+  <!-- ── Editor Tab ──────────────────────────────── -->
+  <div id="editor-tab" class="tab-content active">
+    <div class="controls">
+      <div class="option-group">
+        <label for="editor-lang">Language:</label>
+        <select id="editor-lang">
+          <option value="javascript">JavaScript</option>
+          <option value="typescript">TypeScript</option>
+          <option value="html">HTML</option>
+          <option value="css">CSS</option>
+          <option value="scss">SCSS</option>
+          <option value="json">JSON</option>
+          <option value="python">Python</option>
+          <option value="sql">SQL</option>
+          <option value="markdown">Markdown</option>
+          <option value="yaml">YAML</option>
+          <option value="graphql">GraphQL</option>
+        </select>
+      </div>
+    </div>
+    <div id="editor-container"></div>
+  </div>
+
+  <!-- ── TSX Tab ─────────────────────────────────── -->
+  <div id="tsx-tab" class="tab-content">
+    <div class="controls">
+      <button id="tsx-btn">Transform</button>
+      <div class="option-group">
+        <input type="checkbox" id="tsx-compress" />
+        <label for="tsx-compress">Compress</label>
+      </div>
+      <div class="option-group">
+        <input type="checkbox" id="tsx-mangle" />
+        <label for="tsx-mangle">Mangle</label>
+      </div>
+    </div>
+    <div class="grid">
+      <div>
+        <label>TypeScript / JSX Input</label>
+        <div id="tsx-input" class="editor-box"></div>
+      </div>
+      <div>
+        <label>JavaScript Output</label>
+        <div id="tsx-output" class="editor-box"></div>
+        <div id="tsx-status" class="status"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Prettier Tab ────────────────────────────── -->
+  <div id="format-tab" class="tab-content">
+    <div class="controls">
+      <button id="format-btn">Format</button>
+      <div class="option-group">
+        <label for="format-parser">Parser:</label>
+        <select id="format-parser">
+          <option value="babel">Babel (JS/JSX)</option>
+          <option value="babel-ts">Babel TS</option>
+          <option value="typescript">TypeScript</option>
+          <option value="css">CSS</option>
+          <option value="scss">SCSS</option>
+          <option value="html">HTML</option>
+          <option value="markdown">Markdown</option>
+          <option value="graphql">GraphQL</option>
+          <option value="yaml">YAML</option>
+          <option value="json">JSON</option>
+        </select>
+      </div>
+      <div class="option-group">
+        <input type="checkbox" id="format-single-quote" />
+        <label for="format-single-quote">Single quotes</label>
+      </div>
+      <div class="option-group">
+        <input type="checkbox" id="format-semi" checked />
+        <label for="format-semi">Semicolons</label>
+      </div>
+    </div>
+    <div class="grid">
+      <div>
+        <label>Input</label>
+        <div id="format-input" class="editor-box"></div>
+      </div>
+      <div>
+        <label>Formatted Output</label>
+        <div id="format-output" class="editor-box"></div>
+        <div id="format-status" class="status"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SASS Tab ────────────────────────────────── -->
+  <div id="sass-tab" class="tab-content">
+    <div class="controls">
+      <button id="sass-btn">Compile</button>
+      <div class="option-group">
+        <input type="checkbox" id="sass-compressed" />
+        <label for="sass-compressed">Compressed (+ CSSO)</label>
+      </div>
+    </div>
+    <div class="grid">
+      <div>
+        <label>SCSS Input</label>
+        <div id="sass-input" class="editor-box"></div>
+      </div>
+      <div>
+        <label>CSS Output</label>
+        <div id="sass-output" class="editor-box"></div>
+        <div id="sass-status" class="status"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CSS Modules Tab ─────────────────────────── -->
+  <div id="cssmod-tab" class="tab-content">
+    <div class="controls">
+      <button id="cssmod-btn">Process</button>
+    </div>
+    <div class="grid">
+      <div>
+        <label>SCSS Input</label>
+        <div id="cssmod-input" class="editor-box"></div>
+      </div>
+      <div>
+        <label>Scoped CSS</label>
+        <div id="cssmod-css" class="editor-box"></div>
+        <label style="margin-top: 12px;">Tokens</label>
+        <div id="cssmod-tokens" class="editor-box"></div>
+        <div id="cssmod-status" class="status"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Markdown Tab ──────────────────────────── -->
+  <div id="markdown-tab" class="tab-content">
+    <div class="controls">
+      <button id="markdown-btn">Convert</button>
+    </div>
+    <div class="grid">
+      <div>
+        <label>Markdown Input</label>
+        <div id="markdown-input" class="editor-box"></div>
+      </div>
+      <div>
+        <label>HTML Output</label>
+        <div id="markdown-output" class="editor-box"></div>
+        <div id="markdown-status" class="status"></div>
+        <div class="section-label">Preview</div>
+        <iframe id="markdown-preview" class="preview-frame"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MDX Tab ────────────────────────────────── -->
+  <div id="mdx-tab" class="tab-content">
+    <div class="controls">
+      <button id="mdx-btn">Convert</button>
+    </div>
+    <div class="grid">
+      <div>
+        <label>Markdown Input</label>
+        <div id="mdx-input" class="editor-box"></div>
+      </div>
+      <div>
+        <label>JSON Output</label>
+        <div id="mdx-output" class="editor-box"></div>
+        <div id="mdx-status" class="status"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="dist/xkin.editor.min.js"></script>
+  <script src="dist/xkin.tools.min.js"></script>
+  <script src="dist/xkin.styles.min.js"></script>
+  <script src="dist/xkin.engine.min.js"></script>
+  <script src="dist/xkin.min.js"></script>
+
+  <script>
+    /* ── Helper ─────────────────────────────────── */
+    function ed(id, value, language, read_only = false) {
+      return Xkin.editor({ element: document.getElementById(id), value, language, read_only });
+    }
+
+    function showStatus(id, msg, error = false) {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.className = "status " + (error ? "error" : "success");
+    }
+
+    /* ── Tabs ───────────────────────────────────── */
+    document.querySelectorAll(".tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+        document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById(`${tab.dataset.tab}-tab`).classList.add("active");
+      });
+    });
+
+    /* ── Inject global types (demo) ──────────────── */
+    Xkin.add_types([
+      {
+        path: "preact.d.ts",
+        content: `declare function h(tag: any, props?: any, ...children: any[]): any;\ndeclare const Fragment: unique symbol;`,
+      },
+    ]);
+
+    /* ── Editor Tab ───────────────────────────────── */
+    const mainEditor = ed(
+      "editor-container",
+      '// Start typing...\nconsole.log("Hello, Xkin!");',
+      "javascript",
+    );
+
+    document.getElementById("editor-lang").addEventListener("change", (e) => {
+      Xkin.set_language(mainEditor.getModel(), e.target.value);
+    });
+
+    /* ── TSX Tab ──────────────────────────────────── */
+    const tsxInput = ed("tsx-input", `interface Props {
+  name: string;
+  count: number;
+}
+
+const Counter = ({ name, count }: Props) => {
+  const doubled = useMemo(() => count * 2, [count]);
+
+  return (
+    <div class="counter">
+      <h1>Hello {name}!</h1>
+      <p>Count: {count}, Doubled: {doubled}</p>
+      <button onClick={() => console.log(count)}>Log</button>
+    </div>
+  );
+};
+
+export default Counter;`, "typescript");
+
+    const tsxOutput = ed("tsx-output", "", "javascript", true);
+
+    document.getElementById("tsx-btn").addEventListener("click", async () => {
+      const source = tsxInput.getValue();
+      const compress = document.getElementById("tsx-compress").checked;
+      const mangle = document.getElementById("tsx-mangle").checked;
+      const t0 = performance.now();
+
+      try {
+        const { code } = await Xkin.tsx({ source, compress, mangle });
+        tsxOutput.setValue(code);
+        showStatus("tsx-status", `Done in ${(performance.now() - t0).toFixed(1)}ms — ${source.length}B → ${code.length}B`);
+      } catch (err) {
+        tsxOutput.setValue("");
+        showStatus("tsx-status", err.message, true);
+      }
+    });
+
+    /* ── Prettier Tab ────────────────────────────── */
+    const formatInput = ed("format-input", `const greet=(name,age)=>{if(age>=18){return \`Hello \${name}, you are an adult!\`}else{return \`Hi \${name}, you are \${age} years old\`}}
+
+const users=[{name:"Alice",age:25,email:"alice@example.com"},{name:"Bob",age:17,email:"bob@example.com"},{name:"Charlie",age:30,email:"charlie@example.com"}]
+
+const filtered=users.filter(u=>u.age>=18).map(u=>({...u,isAdult:true})).sort((a,b)=>a.name.localeCompare(b.name))`, "javascript");
+
+    const formatOutput = ed("format-output", "", "javascript", true);
+
+    document.getElementById("format-btn").addEventListener("click", async () => {
+      const source = formatInput.getValue();
+      const parser = document.getElementById("format-parser").value;
+      const singleQuote = document.getElementById("format-single-quote").checked;
+      const semi = document.getElementById("format-semi").checked;
+      const t0 = performance.now();
+
+      try {
+        const formatted = await Xkin.format({ source, parser, singleQuote, semi });
+        formatOutput.setValue(formatted);
+        showStatus("format-status", `Formatted in ${(performance.now() - t0).toFixed(1)}ms`);
+      } catch (err) {
+        formatOutput.setValue("");
+        showStatus("format-status", err.message, true);
+      }
+    });
+
+    /* ── SASS Tab ────────────────────────────────── */
+    const sassInput = ed("sass-input", `$primary: #3498db;
+$radius: 8px;
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+
+  .header {
+    @include flex-center;
+    background: linear-gradient(135deg, $primary, darken($primary, 15%));
+    padding: 40px;
+    border-radius: $radius;
+
+    h1 {
+      color: white;
+      font-size: 2.5rem;
+    }
+  }
+
+  .card {
+    background: white;
+    border-radius: $radius;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    margin-top: 20px;
+
+    &:hover {
+      box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+    }
+  }
+}`, "scss");
+
+    const sassOutput = ed("sass-output", "", "css", true);
+
+    document.getElementById("sass-btn").addEventListener("click", async () => {
+      const source = sassInput.getValue();
+      const compressed = document.getElementById("sass-compressed").checked;
+      const t0 = performance.now();
+
+      try {
+        const { css } = await Xkin.sass({ source, compressed });
+        sassOutput.setValue(css);
+        showStatus("sass-status", `Compiled in ${(performance.now() - t0).toFixed(1)}ms — ${source.length}B → ${css.length}B`);
+      } catch (err) {
+        sassOutput.setValue("");
+        showStatus("sass-status", err.message, true);
+      }
+    });
+
+    /* ── CSS Modules Tab ─────────────────────────── */
+    const cssmodInput = ed("cssmod-input", `$primary: #3498db;
+$font-sm: 14px;
+$font-lg: 24px;
+
+.title {
+  color: $primary;
+  font-size: $font-lg;
+}
+
+.body {
+  font-size: $font-sm;
+  line-height: 1.6;
+}
+
+.button {
+  background: darken($primary, 10%);
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  cursor: pointer;
+
+  &:hover {
+    background: $primary;
+  }
+}`, "scss");
+
+    const cssmodCss = ed("cssmod-css", "", "css", true);
+    const cssmodTokens = ed("cssmod-tokens", "", "json", true);
+
+    document.getElementById("cssmod-btn").addEventListener("click", async () => {
+      const source = cssmodInput.getValue();
+      const t0 = performance.now();
+
+      try {
+        const { css, tokens } = await Xkin.css_modules({ source, namespace: "app" });
+        cssmodCss.setValue(css);
+        cssmodTokens.setValue(JSON.stringify(tokens, null, 2));
+        showStatus("cssmod-status", `Processed in ${(performance.now() - t0).toFixed(1)}ms — ${Object.keys(tokens).length} classes scoped`);
+      } catch (err) {
+        cssmodCss.setValue("");
+        cssmodTokens.setValue("");
+        showStatus("cssmod-status", err.message, true);
+      }
+    });
+
+    /* ── Markdown Tab ─────────────────────────────── */
+    const markdownInput = ed("markdown-input", `# Heading 1
+## Heading 2
+### Heading 3
+#### Heading 4
+##### Heading 5
+###### Heading 6
+
+---
+
+## Inline Formatting
+
+This is **bold**, *italic*, ***bold italic***, and ~~strikethrough~~.
+
+This has \`inline code\` in it.
+
+---
+
+## Emoji Support
+
+:smile: :thumbsup: :rocket: :heart: :warning: :100:
+
+---
+
+## GH Mentions
+
+Hey @octocat, check this out! Also cc @github.
+
+---
+
+## Literal Mid-Word Underscores
+
+foo_bar_baz stays as-is (no italic).
+
+variable_name_here is not parsed as emphasis.
+
+---
+
+## Simple Line Breaks
+
+This line
+and this line
+are separated by single newlines (rendered as br).
+
+---
+
+## Require Space Before Heading
+
+#This won't be a heading (no space after #).
+
+# This will be a heading (space after #).
+
+---
+
+## Links & Images
+
+[Link text](https://example.com "Title")
+
+![Alt text](https://via.placeholder.com/120x40 "Image title")
+
+Autolinked URL: https://example.com
+
+---
+
+## Lists
+
+### Unordered
+
+- Item one
+- Item two
+  - Nested item
+  - Another nested
+- Item three
+
+### Ordered
+
+1. First
+2. Second
+3. Third
+   1. Sub-item
+   2. Sub-item
+
+### Task List
+
+- [x] Completed task
+- [ ] Incomplete task
+- [ ] Another task
+
+---
+
+## Blockquotes
+
+> Single line quote
+
+> Multi-line quote
+> that spans multiple lines
+>
+> > Nested blockquote
+
+---
+
+## Code Blocks
+
+\`\`\`javascript
+function greet(name) {
+  return \\\`Hello, \\\${name}!\\\`;
+}
+console.log(greet("World"));
+\`\`\`
+
+\`\`\`css
+.container {
+  display: flex;
+  gap: 16px;
+}
+\`\`\`
+
+    // Indented code block (4 spaces)
+    const x = 42;
+
+---
+
+## Tables
+
+| Name    | Type   | Default |
+|---------|--------|---------|
+| id      | number | 0       |
+| name    | string | ""      |
+| active  | bool   | true    |
+
+| Left | Center | Right |
+|:-----|:------:|------:|
+| L    |   C    |     R |
+
+---
+
+## Horizontal Rules
+
+---
+***
+___
+
+---
+
+## Inline HTML
+
+<kbd>Ctrl</kbd> + <kbd>C</kbd>
+
+Text with <mark>highlighted</mark> words.
+
+Text with <sub>subscript</sub> and <sup>superscript</sup>.
+
+---
+
+## Escaping
+
+\\*not italic\\*  \\**not bold\\**  \\# not a heading
+
+---
+
+## Paragraphs & Line Breaks
+
+First paragraph with a lot of text that just keeps going.
+
+Second paragraph after a blank line.
+
+Line with two trailing spaces
+creates a line break.`, "markdown");
+
+    const markdownOutput = ed("markdown-output", "", "html", true);
+
+    document.getElementById("markdown-btn").addEventListener("click", () => {
+      const source = markdownInput.getValue();
+      const t0 = performance.now();
+
+      try {
+        const html = Xkin.markdown({
+          source, options: {
+            ghCodeBlocks: true,
+            ghCompatibleHeaderId: true,
+            ghMentions: true,
+            ghMentionsLink: "https://github.com/{u}",
+            tables: true,
+            tasklists: true,
+            strikethrough: true,
+            simplifiedAutoLink: true,
+            excludeTrailingPunctuationFromURLs: true,
+            literalMidWordUnderscores: true,
+            simpleLineBreaks: true,
+            requireSpaceBeforeHeadingText: true,
+            openLinksInNewWindow: true,
+            backslashEscapesHTMLTags: true,
+            emoji: true,
+          }
+        });
+        markdownOutput.setValue(html);
+        document.getElementById("markdown-preview").srcdoc = html;
+        showStatus("markdown-status", `Converted in ${(performance.now() - t0).toFixed(1)}ms — ${source.length}B → ${html.length}B`);
+      } catch (err) {
+        markdownOutput.setValue("");
+        showStatus("markdown-status", err.message, true);
+      }
+    });
+
+    /* ── MDX Tab ───────────────────────────────────── */
+    const mdxInput = ed("mdx-input", `# Hello Component
+
+This is a **reusable** component built from Markdown.
+
+<ui-custom text="user.name" />
+
+## Features
+
+- Converts Markdown to HTML
+- Outputs a JSON tree with symbols
+
+<ui-button label="Click Me" variant="primary" />
+<ui-custom text="user.email" />
+
+> MDX: Markdown that compiles to JSON!`, "markdown");
+
+    const mdxOutput = ed("mdx-output", "", "json", true);
+
+    document.getElementById("mdx-btn").addEventListener("click", async () => {
+      const source = mdxInput.getValue();
+      const t0 = performance.now();
+
+      try {
+        const result = await Xkin.mdx({
+          source, md: {
+            ghCodeBlocks: true,
+            ghCompatibleHeaderId: true,
+            ghMentions: true,
+            ghMentionsLink: "https://github.com/{u}",
+            tables: true,
+            tasklists: true,
+            strikethrough: true,
+            simplifiedAutoLink: true,
+            excludeTrailingPunctuationFromURLs: true,
+            literalMidWordUnderscores: true,
+            simpleLineBreaks: true,
+            requireSpaceBeforeHeadingText: true,
+            openLinksInNewWindow: true,
+            backslashEscapesHTMLTags: true,
+            emoji: true,
+          }
+        });
+        const json = JSON.stringify(result, null, 2);
+        mdxOutput.setValue(json);
+        showStatus("mdx-status", `Converted in ${(performance.now() - t0).toFixed(1)}ms`);
+      } catch (err) {
+        mdxOutput.setValue("");
+        showStatus("mdx-status", err.message, true);
+      }
+    });
+  </script>
+</body>
+
+</html>
