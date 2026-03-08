@@ -10,7 +10,7 @@ import {
   $selection,
   $drag_state,
 } from "./dnd/model.js";
-import { operations, find_section, find_block } from "./dnd/operations.js";
+import { operations, find_section, find_block, find_sections, find_blocks } from "./dnd/operations.js";
 import { can_accept_block, can_accept_section, can_remove_block } from "./dnd/constraints.js";
 import { create_undo_stack } from "./dnd/undo.js";
 import { create_type_registry } from "./dnd/types.js";
@@ -352,6 +352,15 @@ const create_dnd = (hook_system, plugin_registry) => {
 
     async update_block_settings(section_id, block_id, settings) {
       return execute("update_block_settings", { section_id, block_id, settings });
+    },
+
+    // Query
+    find_sections(query) {
+      return find_sections($document.get(), query);
+    },
+
+    find_blocks(query) {
+      return find_blocks($document.get(), query);
     },
 
     // Rendering

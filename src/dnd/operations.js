@@ -31,6 +31,94 @@ const find_block = (doc, block_id) => {
   return null;
 };
 
+/**
+ * Resolve offset/limit from either page-based or offset-based params.
+ * Supports: { page, page_size } or { offset, limit }
+ */
+const resolve_pagination = (opts = {}) => {
+  if (opts.page != null) {
+    const page = Math.max(1, opts.page);
+    const page_size = opts.page_size || 10;
+    return { offset: (page - 1) * page_size, limit: page_size };
+  }
+  return { offset: opts.offset || 0, limit: opts.limit || Infinity };
+};
+
+/**
+ * Query sections with optional filter and pagination.
+ *
+ * @param {object} doc
+ * @param {object} [query]
+ * @param {string} [query.type] - filter by section type
+ * @param {function} [query.filter] - custom predicate (section) => boolean
+ * @param {number} [query.page] - 1-based page number
+ * @param {number} [query.page_size] - items per page (default 10)
+ * @param {number} [query.offset] - skip N items (alternative to page)
+ * @param {number} [query.limit] - max items to return (alternative to page_size)
+ * @returns {{ items: Section[], total: number, page?: number, pages?: number }}
+ */
+const find_sections = (doc, query = {}) => {
+  let items = doc.sections;
+
+  if (query.type) items = items.filter((s) => s.type === query.type);
+  if (query.filter) items = items.filter(query.filter);
+
+  const total = items.length;
+  const { offset, limit } = resolve_pagination(query);
+  items = items.slice(offset, offset + limit);
+
+  const result = { items, total };
+  if (query.page != null) {
+    const page_size = query.page_size || 10;
+    result.page = Math.max(1, query.page);
+    result.pages = Math.ceil(total / page_size);
+  }
+  return result;
+};
+
+/**
+ * Query blocks across all sections (or within one) with optional filter and pagination.
+ *
+ * @param {object} doc
+ * @param {object} [query]
+ * @param {string} [query.section_id] - limit to a specific section
+ * @param {string} [query.type] - filter by block type
+ * @param {function} [query.filter] - custom predicate (block) => boolean
+ * @param {number} [query.page] - 1-based page number
+ * @param {number} [query.page_size] - items per page (default 10)
+ * @param {number} [query.offset] - skip N items (alternative to page)
+ * @param {number} [query.limit] - max items to return (alternative to page_size)
+ * @returns {{ items: Block[], total: number, page?: number, pages?: number }}
+ */
+const find_blocks = (doc, query = {}) => {
+  let items = [];
+
+  const sections = query.section_id
+    ? doc.sections.filter((s) => s.id === query.section_id)
+    : doc.sections;
+
+  for (const section of sections) {
+    for (const block of section.blocks) {
+      items.push(block);
+    }
+  }
+
+  if (query.type) items = items.filter((b) => b.type === query.type);
+  if (query.filter) items = items.filter(query.filter);
+
+  const total = items.length;
+  const { offset, limit } = resolve_pagination(query);
+  items = items.slice(offset, offset + limit);
+
+  const result = { items, total };
+  if (query.page != null) {
+    const page_size = query.page_size || 10;
+    result.page = Math.max(1, query.page);
+    result.pages = Math.ceil(total / page_size);
+  }
+  return result;
+};
+
 /* ── Operations (pure: state => new_state) ──────── */
 
 const operations = {
@@ -182,4 +270,4 @@ const operations = {
   },
 };
 
-export { operations, find_section, find_block };
+export { operations, find_section, find_block, find_sections, find_blocks };

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { create_dnd, $document, $sections, $selection, $drag_state, create_document } from "../dnd.js";
 import { generate_key_between, generate_n_keys_between, reindex } from "../dnd/fractional_index.js";
-import { operations, find_section, find_block } from "../dnd/operations.js";
+import { operations, find_section, find_block, find_sections, find_blocks } from "../dnd/operations.js";
 import { can_accept_block, can_accept_section, can_remove_block } from "../dnd/constraints.js";
 import { create_undo_stack } from "../dnd/undo.js";
 import { create_type_registry } from "../dnd/types.js";
@@ -341,6 +341,124 @@ describe("operations", () => {
 
     it("returns null for non-existent block", () => {
       expect(find_block(doc, "nope")).toBeNull();
+    });
+  });
+
+  describe("find_sections", () => {
+    it("returns all sections with no query", () => {
+      const result = find_sections(doc);
+      expect(result.items).toHaveLength(3);
+      expect(result.total).toBe(3);
+    });
+
+    it("filters by type", () => {
+      const result = find_sections(doc, { type: "hero" });
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].id).toBe("s1");
+      expect(result.total).toBe(1);
+    });
+
+    it("filters with custom predicate", () => {
+      const result = find_sections(doc, {
+        filter: (s) => s.blocks.length > 0,
+      });
+      expect(result.items).toHaveLength(2);
+      expect(result.total).toBe(2);
+    });
+
+    it("paginates with offset/limit", () => {
+      const result = find_sections(doc, { offset: 1, limit: 1 });
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].id).toBe("s2");
+      expect(result.total).toBe(3);
+    });
+
+    it("paginates with page/page_size", () => {
+      const p1 = find_sections(doc, { page: 1, page_size: 2 });
+      expect(p1.items).toHaveLength(2);
+      expect(p1.page).toBe(1);
+      expect(p1.pages).toBe(2);
+      expect(p1.total).toBe(3);
+
+      const p2 = find_sections(doc, { page: 2, page_size: 2 });
+      expect(p2.items).toHaveLength(1);
+      expect(p2.page).toBe(2);
+    });
+
+    it("page defaults to page_size 10", () => {
+      const result = find_sections(doc, { page: 1 });
+      expect(result.items).toHaveLength(3);
+      expect(result.pages).toBe(1);
+    });
+
+    it("combines filter with pagination", () => {
+      const result = find_sections(doc, {
+        filter: (s) => s.blocks.length > 0,
+        page: 1,
+        page_size: 1,
+      });
+      expect(result.items).toHaveLength(1);
+      expect(result.total).toBe(2);
+      expect(result.pages).toBe(2);
+    });
+  });
+
+  describe("find_blocks", () => {
+    it("returns all blocks across sections with no query", () => {
+      const result = find_blocks(doc);
+      expect(result.items).toHaveLength(4);
+      expect(result.total).toBe(4);
+    });
+
+    it("filters by section_id", () => {
+      const result = find_blocks(doc, { section_id: "s1" });
+      expect(result.items).toHaveLength(3);
+      expect(result.total).toBe(3);
+    });
+
+    it("filters by type", () => {
+      const result = find_blocks(doc, { type: "text" });
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].id).toBe("b1");
+    });
+
+    it("filters by type within a section", () => {
+      const result = find_blocks(doc, { section_id: "s1", type: "image" });
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].id).toBe("b2");
+    });
+
+    it("filters with custom predicate", () => {
+      const result = find_blocks(doc, {
+        filter: (b) => b.type === "text" || b.type === "card",
+      });
+      expect(result.items).toHaveLength(2);
+    });
+
+    it("paginates with offset/limit", () => {
+      const result = find_blocks(doc, { offset: 2, limit: 2 });
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0].id).toBe("b3");
+      expect(result.items[1].id).toBe("b4");
+      expect(result.total).toBe(4);
+    });
+
+    it("paginates with page/page_size", () => {
+      const p1 = find_blocks(doc, { page: 1, page_size: 2 });
+      expect(p1.items).toHaveLength(2);
+      expect(p1.page).toBe(1);
+      expect(p1.pages).toBe(2);
+      expect(p1.total).toBe(4);
+
+      const p2 = find_blocks(doc, { page: 2, page_size: 2 });
+      expect(p2.items).toHaveLength(2);
+      expect(p2.page).toBe(2);
+    });
+
+    it("returns empty for non-existent section", () => {
+      const result = find_blocks(doc, { section_id: "nope" });
+      expect(result.items).toHaveLength(0);
+      expect(result.total).toBe(0);
     });
   });
 });
@@ -776,6 +894,67 @@ describe("dnd manager", () => {
 
       dispose();
       expect(dnd2.get_block_type("custom")).toBeNull();
+    });
+  });
+
+  describe("find_sections / find_blocks via manager", () => {
+    beforeEach(async () => {
+      dnd.register_section({ type: "hero", label: "Hero" });
+      dnd.register_section({ type: "footer", label: "Footer" });
+      dnd.register_block({ type: "text", label: "Text" });
+      dnd.register_block({ type: "image", label: "Image" });
+      await dnd.add_section("hero");
+      await dnd.add_section("footer");
+      const s1 = $document.get().sections[0].id;
+      await dnd.add_block(s1, "text");
+      await dnd.add_block(s1, "image");
+      await dnd.add_block(s1, "text");
+    });
+
+    it("find_sections returns all", () => {
+      const result = dnd.find_sections();
+      expect(result.total).toBe(2);
+      expect(result.items).toHaveLength(2);
+    });
+
+    it("find_sections filters by type", () => {
+      const result = dnd.find_sections({ type: "hero" });
+      expect(result.total).toBe(1);
+    });
+
+    it("find_sections paginates with page", () => {
+      const result = dnd.find_sections({ page: 1, page_size: 1 });
+      expect(result.items).toHaveLength(1);
+      expect(result.pages).toBe(2);
+    });
+
+    it("find_blocks returns all", () => {
+      const result = dnd.find_blocks();
+      expect(result.total).toBe(3);
+    });
+
+    it("find_blocks filters by type", () => {
+      const result = dnd.find_blocks({ type: "text" });
+      expect(result.total).toBe(2);
+    });
+
+    it("find_blocks filters by section_id", () => {
+      const s1 = $document.get().sections[0].id;
+      const result = dnd.find_blocks({ section_id: s1 });
+      expect(result.total).toBe(3);
+    });
+
+    it("find_blocks paginates with page", () => {
+      const result = dnd.find_blocks({ page: 1, page_size: 2 });
+      expect(result.items).toHaveLength(2);
+      expect(result.total).toBe(3);
+      expect(result.pages).toBe(2);
+    });
+
+    it("find_blocks paginates with offset/limit", () => {
+      const result = dnd.find_blocks({ offset: 1, limit: 1 });
+      expect(result.items).toHaveLength(1);
+      expect(result.total).toBe(3);
     });
   });
 });

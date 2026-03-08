@@ -580,6 +580,44 @@ declare namespace Xkin {
     render?: (block: Block, ctx: { h: Function; Fragment: Function }) => any;
   }
 
+  /* ── DnD Query & Pagination ─────────────────────── */
+
+  interface PaginationOptions {
+    /** 1-based page number (alternative to offset) */
+    page?: number;
+    /** Items per page (default 10, used with page) */
+    page_size?: number;
+    /** Skip N items (alternative to page) */
+    offset?: number;
+    /** Max items to return (alternative to page_size) */
+    limit?: number;
+  }
+
+  interface FindSectionsQuery extends PaginationOptions {
+    /** Filter by section type */
+    type?: string;
+    /** Custom predicate */
+    filter?: (section: Section) => boolean;
+  }
+
+  interface FindBlocksQuery extends PaginationOptions {
+    /** Limit to a specific section */
+    section_id?: string;
+    /** Filter by block type */
+    type?: string;
+    /** Custom predicate */
+    filter?: (block: Block) => boolean;
+  }
+
+  interface PaginatedResult<T> {
+    items: T[];
+    total: number;
+    /** Present when page was used in the query */
+    page?: number;
+    /** Present when page was used in the query */
+    pages?: number;
+  }
+
   /* ── DnD Engine (@dnd-kit/dom) ───────────────────── */
 
   interface DndEngineOptions {
@@ -666,6 +704,10 @@ declare namespace Xkin {
     update_block(section_id: string, block_id: string, content: Record<string, any>): Promise<Document>;
     update_section_settings(section_id: string, settings: Record<string, any>): Promise<Document>;
     update_block_settings(section_id: string, block_id: string, settings: Record<string, any>): Promise<Document>;
+
+    // Query with pagination (supports page/page_size or offset/limit)
+    find_sections(query?: FindSectionsQuery): PaginatedResult<Section>;
+    find_blocks(query?: FindBlocksQuery): PaginatedResult<Block>;
 
     // Rendering
     render(doc?: Document): any;
