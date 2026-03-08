@@ -3,16 +3,20 @@
   "version": "1.0.0",
   "description": "Browser-ready bundles for Monaco Editor, Babel, Prettier, SASS, CSSO, Terser & Showdown",
   "main": "dist/xkin.min.js",
+  "types": "xkin.d.ts",
   "files": [
-    "dist/"
+    "dist/",
+    "xkin.d.ts"
   ],
   "scripts": {
-    "build": "npm run build:tools && npm run build:styles && npm run build:engine && npm run build:editor && npm run build:main",
+    "build": "npm run build:tools && npm run build:styles && npm run build:engine && npm run build:editor && npm run build:main && npm run build:types",
+    "build:types": "cp xkin.d.ts dist/xkin.d.ts",
     "build:engine": "cross-env NODE_OPTIONS=--max-old-space-size=4096 webpack --config webpack.config.mjs --config-name engine --mode production",
     "build:main": "cross-env NODE_OPTIONS=--max-old-space-size=4096 webpack --config webpack.config.mjs --config-name main --mode production",
     "build:editor": "cross-env NODE_OPTIONS=--max-old-space-size=4096 webpack --config webpack.config.mjs --config-name editor --mode production",
     "build:tools": "cross-env NODE_OPTIONS=--max-old-space-size=4096 webpack --config webpack.config.mjs --config-name tools --mode production",
     "build:styles": "cross-env NODE_OPTIONS=--max-old-space-size=4096 webpack --config webpack.config.mjs --config-name styles --mode production",
+    "test": "vitest run",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -63,6 +67,7 @@
     "monaco-editor-webpack-plugin": "7.1.1",
     "style-loader": "4.0.0",
     "terser-webpack-plugin": "5.3.17",
+    "vitest": "^4.0.18",
     "webpack": "5.105.4",
     "webpack-cli": "6.0.1",
     "webpack-dev-server": "5.2.3"

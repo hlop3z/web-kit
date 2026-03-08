@@ -1,5 +1,19 @@
 import * as nano from "nanostores";
 import { atom } from "nanostores";
+import {
+  create_file_registry,
+  $workspace,
+  $files,
+  $active_file,
+  $open_files,
+  $file_tree,
+  $is_dirty,
+  $dirty_files,
+  $active_entry,
+} from "./files.js";
+import { create_workspace_manager } from "./workspace.js";
+import persistence from "./persistence.js";
+import { create_keys_manager } from "./keys.js";
 
 const get_editor = () => globalThis.XkinEditor;
 const get_tools = () => globalThis.XkinTools;
@@ -107,138 +121,32 @@ const sync_types = (libs) => {
   }
 };
 
-/* ── File Registry (CRUD + Merge + Format) ───── */
+/* ── Initialize modules ───────────────────────────── */
 
-const $files = atom([]);
-
-const file_registry = {
-  create(name, content = "", { main = false, language = "typescript" } = {}) {
-    const monaco = get_editor();
-    const uri = monaco.Uri.parse(to_file_uri(name));
-    const existing = monaco.editor.getModel(uri);
-    let model;
-    if (existing) {
-      existing.setValue(content);
-      model = existing;
-    } else {
-      model = monaco.editor.createModel(content, language, uri);
-    }
-
-    const entries = $files.get().filter((f) => f.name !== name);
-    entries.push({ name, main, language });
-    $files.set(entries);
-
-    return model;
-  },
-
-  read(name) {
-    const monaco = get_editor();
-    const uri = monaco.Uri.parse(to_file_uri(name));
-    const model = monaco.editor.getModel(uri);
-    return model ? model.getValue() : null;
-  },
-
-  update(name, content) {
-    const monaco = get_editor();
-    const uri = monaco.Uri.parse(to_file_uri(name));
-    const model = monaco.editor.getModel(uri);
-    if (!model) return null;
-    model.setValue(content);
-    return model;
-  },
-
-  delete(name) {
-    const monaco = get_editor();
-    const uri = monaco.Uri.parse(to_file_uri(name));
-    const model = monaco.editor.getModel(uri);
-    if (model) model.dispose();
-
-    const entries = $files.get().filter((f) => f.name !== name);
-    $files.set(entries);
-  },
-
-  list() {
-    return $files.get().map((f) => ({ ...f }));
-  },
-
-  get(name) {
-    const monaco = get_editor();
-    const uri = monaco.Uri.parse(to_file_uri(name));
-    return monaco.editor.getModel(uri);
-  },
-
-  rename(oldName, newName) {
-    const content = file_registry.read(oldName);
-    if (content === null) return null;
-
-    const entry = $files.get().find((f) => f.name === oldName);
-    const opts = entry ? { main: entry.main, language: entry.language } : {};
-
-    file_registry.delete(oldName);
-    return file_registry.create(newName, content, opts);
-  },
-
-  merge({ strip_imports = true, separator = "\n\n" } = {}) {
-    const entries = $files.get();
-    const nonMain = entries.filter((f) => !f.main);
-    const main = entries.filter((f) => f.main);
-    const ordered = [...nonMain, ...main];
-
-    const chunks = ordered.map((f) => {
-      const content = file_registry.read(f.name) || "";
-      return `// -- ${f.name} --\n${content}`;
-    });
-
-    let merged = chunks.join(separator);
-    if (strip_imports) {
-      merged = merged.replace(/^import\s+.*;\s*$/gm, "");
-    }
-    return merged;
-  },
-
-  async format(name, opts = {}) {
-    const content = file_registry.read(name);
-    if (content === null) return null;
-
-    const tools = get_tools();
-    if (!tools || !tools.format) return content;
-
-    const entry = $files.get().find((f) => f.name === name);
-    const parser = opts.parser || (entry && /\.tsx?$/.test(entry.name) ? "typescript" : "babel");
-
-    const formatted = await tools.format({
-      source: content,
-      parser,
-      ...opts,
-    });
-
-    file_registry.update(name, formatted);
-    return formatted;
-  },
-
-  async format_all(opts = {}) {
-    const entries = $files.get();
-    const results = {};
-    for (const f of entries) {
-      results[f.name] = await file_registry.format(f.name, opts);
-    }
-    return results;
-  },
-
-  clear() {
-    const entries = $files.get();
-    for (const f of entries) {
-      file_registry.delete(f.name);
-    }
-  },
-};
+const file_registry = create_file_registry();
+const workspace_manager = create_workspace_manager(file_registry);
+const keys_manager = create_keys_manager();
 
 class Xkin {
   static $types = $types;
-  static $files = $files;
-  static files = file_registry;
 
-  /* ── Editor ──────────────────────────────────── */
+  /* ── New API: Workspace + Files + Keys ──────────── */
+
+  static $workspace = $workspace;
+  static $files = $files;
+  static $active_file = $active_file;
+  static $open_files = $open_files;
+  static $file_tree = $file_tree;
+  static $is_dirty = $is_dirty;
+  static $dirty_files = $dirty_files;
+  static $active_entry = $active_entry;
+
+  static workspace = workspace_manager;
+  static files = file_registry;
+  static persistence = persistence;
+  static keys = keys_manager;
+
+  /* ── Editor ──────────────────────────────────────── */
 
   static editor({
     element,
@@ -276,7 +184,7 @@ class Xkin {
     const uri = monaco.Uri.parse(`file:///model_${uid}.${ext}`);
     const model = monaco.editor.createModel(value, language, uri);
 
-    return monaco.editor.create(element, {
+    const editor_instance = monaco.editor.create(element, {
       model,
       theme,
       readOnly: read_only,
@@ -286,6 +194,11 @@ class Xkin {
       automaticLayout: auto_layout,
       ...opts,
     });
+
+    // Wire up keybindings to this editor
+    keys_manager._set_editor(editor_instance);
+
+    return editor_instance;
   }
 
   static set_theme(theme) {
@@ -296,7 +209,7 @@ class Xkin {
     get_editor().editor.setModelLanguage(model, language);
   }
 
-  /* ── Models (virtual file system) ───────────── */
+  /* ── Models (virtual file system) ────────────────── */
 
   static create_model(path, content = "", language = "typescript") {
     const monaco = get_editor();
@@ -320,7 +233,7 @@ class Xkin {
     if (model) model.dispose();
   }
 
-  /* ── Types (reactive) ────────────────────────── */
+  /* ── Types (reactive) ───────────────────────────── */
 
   static add_types(libs) {
     const current = $types.get();
@@ -347,7 +260,7 @@ class Xkin {
     return $types.get();
   }
 
-  /* ── Compiler ────────────────────────────────── */
+  /* ── Compiler ───────────────────────────────────── */
 
   static set_compiler(opts) {
     const monaco = get_editor();
@@ -355,7 +268,7 @@ class Xkin {
     monaco.languages.typescript.javascriptDefaults.setCompilerOptions(opts);
   }
 
-  /* ── Tools ───────────────────────────────────── */
+  /* ── Tools ──────────────────────────────────────── */
 
   static tsx(args) {
     return get_tools().tsx(args);
@@ -386,13 +299,13 @@ class Xkin {
     return { tree, symbols: [...symbols] };
   }
 
-  /* ── Engine (Preact) ─────────────────────────── */
+  /* ── Engine (Preact) ────────────────────────────── */
 
   static get engine() {
     return get_engine();
   }
 
-  /* ── Styles ──────────────────────────────────── */
+  /* ── Styles ─────────────────────────────────────── */
 
   static sass(args) {
     return get_styles().sass(args);
@@ -402,7 +315,7 @@ class Xkin {
     return get_styles().cssModules(args);
   }
 
-  /* ── Store (Nanostores) ─────────────────────── */
+  /* ── Store (Nanostores) ─────────────────────────── */
 
   static store = nano;
 }
