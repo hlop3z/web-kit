@@ -1,0 +1,399 @@
+/* ── Reset & Base ──────────────────────────────── */
+
+:root {
+  --bg-primary: #1e1e2e;
+  --bg-secondary: #181825;
+  --bg-surface: #252536;
+  --bg-hover: #313244;
+  --bg-active: #45475a;
+  --text-primary: #cdd6f4;
+  --text-secondary: #a6adc8;
+  --text-muted: #6c7086;
+  --border: #313244;
+  --accent: #89b4fa;
+  --accent-hover: #74c7ec;
+  --dirty: #f9e2af;
+  --danger: #f38ba8;
+
+  --toolbar-h: 40px;
+  --tabs-h: 36px;
+  --statusbar-h: 24px;
+  --sidebar-w: 220px;
+  --panel-w: 280px;
+
+  font-family: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+#app {
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ── Loading ───────────────────────────────────── */
+
+.cs-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* ── IDE Layout (CSS Grid) ─────────────────────── */
+
+.cs-layout {
+  display: grid;
+  grid-template-rows: var(--toolbar-h) 1fr var(--statusbar-h);
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.cs-layout-toolbar {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+}
+
+.cs-layout-body {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr var(--panel-w);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.cs-layout-sidebar {
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+.cs-layout-center {
+  display: grid;
+  grid-template-rows: var(--tabs-h) 1fr;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.cs-layout-tabs {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.cs-layout-editor {
+  overflow: hidden;
+  min-height: 0;
+  position: relative;
+}
+
+.cs-layout-panel {
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.cs-layout-statusbar {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+/* ── Toolbar ───────────────────────────────────── */
+
+.cs-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 8px;
+  gap: 4px;
+}
+
+.cs-toolbar-left,
+.cs-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Buttons ───────────────────────────────────── */
+
+.cs-btn {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+
+.cs-btn:hover {
+  background: var(--bg-hover);
+}
+
+.cs-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.cs-btn-accent {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cs-btn-sm {
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+/* ── Explorer (File Tree) ──────────────────────── */
+
+.cs-explorer {
+  padding: 8px 0;
+}
+
+.cs-tree-row {
+  display: flex;
+  align-items: center;
+  padding: 2px 8px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: background 0.1s;
+}
+
+.cs-tree-row:hover {
+  background: var(--bg-hover);
+}
+
+.cs-tree-row.active {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.cs-tree-arrow {
+  display: inline-block;
+  width: 14px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.cs-tree-dir-label {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cs-tree-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs-dirty-dot {
+  color: var(--dirty);
+  font-weight: bold;
+}
+
+/* ── Tabs ──────────────────────────────────────── */
+
+.cs-tabs {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  gap: 0;
+}
+
+.cs-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+
+.cs-tab:hover {
+  background: var(--bg-hover);
+}
+
+.cs-tab.active {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--accent);
+}
+
+.cs-tab-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  border-radius: 3px;
+}
+
+.cs-tab-close:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+/* ── Editor Panel ──────────────────────────────── */
+
+.cs-editor-panel {
+  width: 100%;
+  height: 100%;
+}
+
+.cs-editor-panel.cs-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cs-welcome {
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.cs-welcome h2 {
+  font-size: 20px;
+  font-weight: 400;
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+}
+
+.cs-welcome p {
+  font-size: 13px;
+}
+
+/* ── Preview Panel ─────────────────────────────── */
+
+.cs-preview {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 8px;
+}
+
+.cs-preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cs-preview-frame {
+  flex: 1;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.cs-preview-error pre {
+  color: var(--danger);
+  font-size: 11px;
+  white-space: pre-wrap;
+}
+
+/* ── Status Bar ────────────────────────────────── */
+
+.cs-status-bar {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.cs-status-left,
+.cs-status-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cs-status-item {
+  color: var(--text-muted);
+}
+
+.cs-status-sep {
+  opacity: 0.3;
+}
+
+.cs-status-dirty {
+  color: var(--dirty);
+}
+
+/* ── Empty / Hint states ───────────────────────── */
+
+.cs-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.cs-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── Scrollbar ─────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-active);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
