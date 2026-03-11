@@ -1,10 +1,48 @@
-# Xkin Editor — AWS Hosting Cost Analysis
+# Xkin Editor — Hosting & Cost Analysis
 
-The strategy:
+## Distribution Model
 
-- Demo page (no signup) — let anyone drag blocks around, see the magic, instant "aha"
-- 14-day trial (signup) — full access, watermarked exports, build real things
-- Day 14 — pay $9+ or lose access (data kept 30 days so they can come back)
+The `xkin` npm package is **open-source and free**. The **hosted editor (Xkin Studio)** is the paid product.
+
+### Free: Library via jsdelivr CDN
+
+The npm package is served for free via **jsdelivr** — chosen over unpkg/cdnjs because:
+
+- **99.99% SLA** with multi-CDN failover (Cloudflare + Fastly + GCore)
+- **Fastest** — load-balanced across multiple providers
+- **Zero outages** vs unpkg (went down in 2021, 2023)
+- **Auto npm sync** — publishes are live on CDN within minutes
+- **Auto minification** and version ranges (`@^1`, `@latest`)
+- **Usage analytics** via `data.jsdelivr.com`
+- **No submission process** unlike cdnjs (which requires manual curation)
+- **50 MB package limit** (plenty for xkin's ~43 MB dist)
+
+```html
+<!-- Library users: free via jsdelivr (demos, open-source projects, prototypes) -->
+<script src="https://cdn.jsdelivr.net/npm/xkin@1.0.0/dist/xkin.min.js"></script>
+
+<!-- ES module -->
+<script type="module">
+  import { Xkin } from "https://cdn.jsdelivr.net/npm/xkin@1.0.0/dist/xkin.min.js";
+</script>
+```
+
+**Cost to you: $0.** jsdelivr is free for all npm packages, no limits, no API keys.
+
+### Paid: Xkin Studio via AWS CloudFront
+
+The hosted SaaS (xkin-studio) serves from your own **AWS CloudFront** — never depend on a third-party CDN for your paid product.
+
+```
+Demo/Library users → jsdelivr (free, $0 cost)
+Paying SaaS users  → CloudFront (your infra, your control)
+```
+
+### Strategy
+
+- **Demo page** (no signup) — let anyone drag blocks around, see the magic, instant "aha"
+- **14-day trial** (signup) — full access, watermarked exports, build real things
+- **Day 14** — pay $9+ or lose access (data kept 30 days for recovery)
 
 > At 1K monthly signups with 12% conversion averaging $19/user, you net ~$1,900/month after all edge case costs. That's without a free tier dragging down perceived value or inflating support load.
 

@@ -1,121 +1,74 @@
-import type { XkinAPI, VNode, Dispose } from "../../types.ts";
+import type { XkinAPI, VNode } from "../../types.ts";
+import { build } from "../build.ts";
+import type { BuildConfig, BuildResult } from "../build.ts";
 
 /**
- * Preview — live preview panel.
+ * Preview Panel — build and render the component.
  *
- * Watches the active file. When it changes, transpiles TSX and renders
- * the result in an iframe sandbox. Supports JS/TS/TSX/JSX and HTML.
+ * "Preview" to the user, "build" internally.
+ * Assembles root + layout + component layers → iframe.
  */
 export function create_preview(xkin: XkinAPI) {
   const { h } = xkin.engine;
 
-  const TSX_LANGS = new Set(["javascript", "typescript", "typescriptreact", "javascriptreact"]);
-  const HTML_LANGS = new Set(["html"]);
-  const CSS_LANGS = new Set(["css", "scss"]);
-  const MD_LANGS = new Set(["markdown"]);
+  let iframe_el: HTMLIFrameElement | null = null;
+  let status_el: HTMLElement | null = null;
+  let last_result: BuildResult | null = null;
 
-  let last_html = "";
-  let error_msg = "";
-
-  const build_preview = async (): Promise<string> => {
-    const path = xkin.$active_file.get();
-    if (!path) return "";
-
-    const content = xkin.files.read(path);
-    if (!content) return "";
-
-    const entry = xkin.files.entry(path);
-    const lang = entry?.language ?? "";
+  const run_build = async (config?: BuildConfig) => {
+    if (status_el) {
+      status_el.textContent = "Building...";
+      status_el.className = "cs-preview-status";
+    }
 
     try {
-      if (TSX_LANGS.has(lang)) {
-        const { code } = await xkin.tsx({ source: content });
-        // Wrap in a basic HTML shell
-        return `<!DOCTYPE html>
-<html><head><meta charset="utf-8">
-<style>body{font-family:system-ui,sans-serif;margin:1em;color:#e0e0e0;background:#1a1a2e;}</style>
-</head><body>
-<script type="module">
-try{${code}}catch(e){document.body.innerHTML='<pre style="color:#f87171">'+e.message+'</pre>';}
-</script></body></html>`;
-      }
+      last_result = await build(xkin, config);
 
-      if (HTML_LANGS.has(lang)) {
-        return content;
+      if (iframe_el) iframe_el.srcdoc = last_result.html;
+      if (status_el) {
+        status_el.textContent = "";
+        status_el.className = "cs-preview-status";
       }
-
-      if (CSS_LANGS.has(lang)) {
-        let css = content;
-        if (lang === "scss") {
-          const result = await xkin.sass({ source: content });
-          css = result.css;
-        }
-        return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><style>${css}</style></head>
-<body><div class="preview">CSS Preview</div></body></html>`;
-      }
-
-      if (MD_LANGS.has(lang)) {
-        const html = xkin.markdown({ source: content });
-        return `<!DOCTYPE html>
-<html><head><meta charset="utf-8">
-<style>body{font-family:system-ui,sans-serif;margin:1em;line-height:1.6;color:#e0e0e0;background:#1a1a2e;}
-code{background:rgba(255,255,255,0.1);padding:0.2em 0.4em;border-radius:3px;}
-pre{background:rgba(255,255,255,0.05);padding:1em;border-radius:6px;overflow-x:auto;}</style>
-</head><body>${html}</body></html>`;
-      }
-
-      return `<html><body><pre>${content.replace(/</g, "&lt;")}</pre></body></html>`;
     } catch (err) {
-      error_msg = String(err);
-      return "";
+      last_result = null;
+      if (iframe_el) iframe_el.srcdoc = "";
+      if (status_el) {
+        status_el.textContent = String(err);
+        status_el.className = "cs-preview-status cs-preview-error";
+      }
     }
   };
 
-  let sub: Dispose | null = null;
-
   const render = (): VNode => {
-    const active = xkin.$active_file.get();
-
-    if (!active) {
-      return h("div", { class: "cs-preview cs-empty" },
-        h("p", null, "No file open"),
-      );
-    }
-
-    if (error_msg) {
-      const msg = error_msg;
-      return h("div", { class: "cs-preview cs-preview-error" },
-        h("pre", null, msg),
-      );
-    }
-
     return h("div", { class: "cs-preview" },
       h("div", { class: "cs-preview-toolbar" },
         h("span", null, "Preview"),
-        h("button", {
-          class: "cs-btn cs-btn-sm",
-          onClick: async () => {
-            error_msg = "";
-            last_html = await build_preview();
-          },
-          title: "Refresh preview",
-        }, "\u21bb Refresh"),
+        h("div", { style: { display: "flex", gap: "4px" } },
+          h("button", {
+            class: "cs-btn cs-btn-sm cs-btn-accent",
+            onClick: () => run_build(),
+            title: "Build and preview component (Ctrl+Enter)",
+          }, "\u25b6 Build"),
+        ),
       ),
-      last_html
-        ? h("iframe", {
-          class: "cs-preview-frame",
-          srcDoc: last_html,
-          sandbox: "allow-scripts",
-          style: { width: "100%", height: "100%", border: "none" },
-        })
-        : h("p", { class: "cs-hint" }, "Click Refresh to preview"),
+      h("div", {
+        class: "cs-preview-status",
+        ref: (el: HTMLElement | null) => { status_el = el; },
+      }),
+      h("iframe", {
+        class: "cs-preview-frame",
+        sandbox: "allow-scripts",
+        style: { width: "100%", flex: "1", border: "none" },
+        ref: (el: HTMLIFrameElement | null) => { iframe_el = el; },
+      }),
     );
   };
 
   const dispose = () => {
-    if (sub) { sub(); sub = null; }
+    iframe_el = null;
+    status_el = null;
+    last_result = null;
   };
 
-  return { render, dispose };
+  return { render, dispose, build: run_build, get result() { return last_result; } };
 }

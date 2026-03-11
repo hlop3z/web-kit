@@ -20,7 +20,7 @@ const LANG_MAP = {
   ts: "typescript",
   mts: "typescript",
   cts: "typescript",
-  tsx: "typescriptreact",
+  tsx: "typescript",
   json: "json",
   html: "html",
   htm: "html",
@@ -467,11 +467,15 @@ const create_file_registry = (hooks) => {
         files.save_view_state(current, editor_instance);
       }
 
-      editor_instance.setModel(model);
+      if (editor_instance) {
+        editor_instance.setModel(model);
+      }
       $active_file.set(path);
 
       // Restore view state for new file
-      files.restore_view_state(path, editor_instance);
+      if (editor_instance) {
+        files.restore_view_state(path, editor_instance);
+      }
 
       // Ensure it's in open files
       const open = $open_files.get();

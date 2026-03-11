@@ -15,7 +15,7 @@
   --dirty: #f9e2af;
   --danger: #f38ba8;
 
-  --toolbar-h: 40px;
+  --toolbar-h: 72px;
   --tabs-h: 36px;
   --statusbar-h: 24px;
   --sidebar-w: 220px;
@@ -71,7 +71,7 @@ body {
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   display: flex;
-  align-items: center;
+  align-items: stretch;
 }
 
 .cs-layout-body {
@@ -125,15 +125,30 @@ body {
   font-size: 11px;
 }
 
-/* ── Toolbar ───────────────────────────────────── */
+/* ── Toolbar (two rows) ───────────────────────── */
 
 .cs-toolbar {
   display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.cs-toolbar-row {
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
   padding: 0 8px;
-  gap: 4px;
+  min-height: 0;
+}
+
+.cs-toolbar-modes {
+  height: 36px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cs-toolbar-entities {
+  height: 36px;
 }
 
 .cs-toolbar-left,
@@ -141,6 +156,235 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+/* ── Mode Tabs (row 1) ───────────────────────── */
+
+.cs-mode-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.cs-mode-group-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  padding: 0 6px 0 4px;
+}
+
+.cs-mode-tab {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.cs-mode-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.cs-mode-tab.active {
+  background: var(--bg-surface);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.cs-mode-tab.disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.cs-mode-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+/* ── File Bar (toolbar row 2) ─────────────────── */
+
+.cs-toolbar-files {
+  gap: 6px;
+}
+
+.cs-file-bar {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  min-width: 0;
+  padding: 2px 0;
+}
+
+.cs-file-bar::-webkit-scrollbar {
+  height: 3px;
+}
+
+.cs-file-bar::-webkit-scrollbar-thumb {
+  background: var(--bg-active);
+  border-radius: 2px;
+}
+
+.cs-file-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s, border-color 0.15s, color 0.1s;
+}
+
+.cs-file-pill:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.cs-file-pill.active {
+  background: var(--bg-active);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.cs-file-pill.dirty {
+  border-color: var(--dirty);
+}
+
+.cs-file-pill-icon {
+  font-size: 9px;
+  color: var(--accent);
+}
+
+.cs-file-pill-close {
+  background: none;
+  border: none;
+  color: transparent;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0 1px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: color 0.1s;
+  width: 14px;
+  text-align: center;
+}
+
+.cs-file-pill:hover .cs-file-pill-close {
+  color: var(--text-muted);
+}
+
+.cs-file-pill-close:hover {
+  color: var(--danger) !important;
+}
+
+.cs-file-add-btn {
+  flex-shrink: 0;
+}
+
+/* ── Entity List (sidebar) ────────────────────── */
+
+.cs-explorer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cs-explorer-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.cs-entity-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.cs-entity-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: background 0.1s;
+}
+
+.cs-entity-row:hover {
+  background: var(--bg-hover);
+}
+
+.cs-entity-row.active {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.cs-entity-dot {
+  font-size: 8px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.cs-entity-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-entity-delete {
+  background: none;
+  border: none;
+  color: transparent;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+  border-radius: 3px;
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+  transition: color 0.1s;
+}
+
+.cs-entity-row:hover .cs-entity-delete {
+  color: var(--text-muted);
+}
+
+.cs-entity-delete:hover {
+  color: var(--danger) !important;
+}
+
+.cs-status-mode {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.cs-status-muted {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 /* ── Buttons ───────────────────────────────────── */
@@ -177,48 +421,16 @@ body {
   font-size: 11px;
 }
 
-/* ── Explorer (File Tree) ──────────────────────── */
+/* ── Explorer ──────────────────────────────────── */
 
 .cs-explorer {
-  padding: 8px 0;
-}
-
-.cs-tree-row {
   display: flex;
-  align-items: center;
-  padding: 2px 8px;
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
-  font-size: 12px;
-  color: var(--text-secondary);
-  transition: background 0.1s;
+  flex-direction: column;
+  height: 100%;
 }
 
-.cs-tree-row:hover {
-  background: var(--bg-hover);
-}
-
-.cs-tree-row.active {
-  background: var(--bg-active);
-  color: var(--text-primary);
-}
-
-.cs-tree-arrow {
-  display: inline-block;
-  width: 14px;
-  font-size: 10px;
-  color: var(--text-muted);
-}
-
-.cs-tree-dir-label {
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.cs-tree-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.cs-explorer-hint {
+  padding: 8px 10px;
 }
 
 .cs-dirty-dot {
@@ -303,6 +515,35 @@ body {
   font-size: 13px;
 }
 
+/* Textarea fallback (when Monaco is unavailable) */
+
+.cs-editor-fallback {
+  display: flex;
+  flex-direction: column;
+}
+
+.cs-editor-textarea {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: none;
+  outline: none;
+  padding: 12px 16px;
+  font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  tab-size: 2;
+  resize: none;
+  white-space: pre;
+  overflow: auto;
+}
+
+.cs-editor-textarea:focus {
+  background: var(--bg-secondary);
+}
+
 /* ── Preview Panel ─────────────────────────────── */
 
 .cs-preview {
@@ -329,7 +570,26 @@ body {
 .cs-preview-frame {
   flex: 1;
   border-radius: 4px;
-  background: #fff;
+  border: 1px solid var(--border);
+  background: #1a1a2e;
+}
+
+.cs-preview-status {
+  font-size: 11px;
+  padding: 0 4px;
+  min-height: 0;
+  transition: min-height 0.15s;
+}
+
+.cs-preview-status:not(:empty) {
+  min-height: 20px;
+  padding: 4px;
+}
+
+.cs-preview-error {
+  color: var(--danger);
+  background: rgba(243, 139, 168, 0.1);
+  border-radius: 4px;
 }
 
 .cs-preview-error pre {
@@ -376,6 +636,87 @@ body {
 .cs-hint {
   font-size: 11px;
   color: var(--text-muted);
+}
+
+/* ── Confirm Dialog ────────────────────────────── */
+
+.cs-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+  animation: cs-fade-in 0.12s ease-out;
+}
+
+.cs-confirm-dialog {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px 24px;
+  min-width: 300px;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  animation: cs-slide-up 0.12s ease-out;
+}
+
+.cs-confirm-message {
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.cs-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cs-confirm-cancel {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.cs-confirm-cancel:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.cs-confirm-delete {
+  background: var(--danger);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.1s;
+}
+
+.cs-confirm-delete:hover {
+  opacity: 0.85;
+}
+
+@keyframes cs-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cs-slide-up {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 /* ── Scrollbar ─────────────────────────────────── */

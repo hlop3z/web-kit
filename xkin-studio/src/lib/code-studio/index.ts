@@ -5,6 +5,13 @@ import { create_editor_panel } from "./components/editor_panel.ts";
 import { create_preview } from "./components/preview.ts";
 import { create_toolbar } from "./components/toolbar.ts";
 import { create_status_bar } from "./components/status_bar.ts";
+import type { Registry } from "./registry.ts";
+import type { ProjectStore } from "./project.ts";
+
+export type { Registry } from "./registry.ts";
+export { create_registry } from "./registry.ts";
+export type { ProjectStore } from "./project.ts";
+export { create_project } from "./project.ts";
 
 /**
  * Code Studio — Layer 1
@@ -12,10 +19,18 @@ import { create_status_bar } from "./components/status_bar.ts";
  * Browser IDE built as sub-plugins of xkin-studio.
  * Each plugin contributes UI to xkin slots and registers keybindings/commands.
  * All use the `xkin` object exclusively — zero direct imports from web-kit.
+ *
+ * The prefix registry and project store are created by the parent (create_studio)
+ * and passed in so both the plugins and the host app can access them.
  */
-export function register_code_studio(xkin: XkinAPI, _parent_ctx: PluginContext) {
+export function register_code_studio(
+  xkin: XkinAPI,
+  _parent_ctx: PluginContext,
+  project: ProjectStore,
+  registry: Registry,
+) {
 
-  /* ── Explorer (file tree sidebar) ─────────────── */
+  /* ── Explorer (entity list + file tree sidebar) ── */
 
   xkin.plugins.register({
     id: "cs.explorer",
@@ -24,7 +39,7 @@ export function register_code_studio(xkin: XkinAPI, _parent_ctx: PluginContext) 
     permissions: ["ui", "files"],
     activation: "on_load",
     activate(ctx) {
-      const Explorer = create_explorer(xkin);
+      const Explorer = create_explorer(xkin, project);
       ctx.contribute("sidebar_left", {
         id: "cs.explorer",
         label: "Explorer",
@@ -35,7 +50,7 @@ export function register_code_studio(xkin: XkinAPI, _parent_ctx: PluginContext) 
     },
   });
 
-  /* ── Editor Tabs ──────────────────────────────── */
+  /* ── Editor Tabs ──────────────────────────── */
 
   xkin.plugins.register({
     id: "cs.tabs",
@@ -54,7 +69,7 @@ export function register_code_studio(xkin: XkinAPI, _parent_ctx: PluginContext) 
     },
   });
 
-  /* ── Editor Panel (Monaco) ────────────────────── */
+  /* ── Editor Panel (Monaco / textarea) ─────── */
 
   xkin.plugins.register({
     id: "cs.editor",
@@ -65,10 +80,6 @@ export function register_code_studio(xkin: XkinAPI, _parent_ctx: PluginContext) 
     activate(ctx) {
       const editor = create_editor_panel(xkin);
 
-      // The editor contributes to the main content area.
-      // Since there's no "main_content" slot, we use bottom_panel
-      // as a secondary, and the actual editor mounts via the
-      // host app's layout. The render function handles DOM mounting.
       ctx.contribute("overlay", {
         id: "cs.editor-panel",
         label: "Editor",
@@ -80,7 +91,7 @@ export function register_code_studio(xkin: XkinAPI, _parent_ctx: PluginContext) 
     },
   });
 
-  /* ── Preview Panel ────────────────────────────── */
+  /* ── Preview Panel ────────────────────────── */
 
   xkin.plugins.register({
     id: "cs.preview",
@@ -99,11 +110,19 @@ export function register_code_studio(xkin: XkinAPI, _parent_ctx: PluginContext) 
         render: preview.render,
       });
 
+      // Register build as a command so keybindings can trigger it
+      ctx.subscriptions.push(xkin.keys.add({
+        id: "cs.build-preview",
+        label: "Build Preview",
+        keys: "",
+        run: () => preview.build(),
+      }));
+
       ctx.subscriptions.push(preview.dispose);
     },
   });
 
-  /* ── Toolbar ──────────────────────────────────── */
+  /* ── Toolbar ──────────────────────────────── */
 
   xkin.plugins.register({
     id: "cs.toolbar",
@@ -112,7 +131,7 @@ export function register_code_studio(xkin: XkinAPI, _parent_ctx: PluginContext) 
     permissions: ["ui", "files", "workspace", "commands"],
     activation: "on_load",
     activate(ctx) {
-      const Toolbar = create_toolbar(xkin);
+      const Toolbar = create_toolbar(xkin, project);
       ctx.contribute("toolbar", {
         id: "cs.toolbar",
         label: "Toolbar",
@@ -122,7 +141,7 @@ export function register_code_studio(xkin: XkinAPI, _parent_ctx: PluginContext) 
     },
   });
 
-  /* ── Status Bar ───────────────────────────────── */
+  /* ── Status Bar ───────────────────────────── */
 
   xkin.plugins.register({
     id: "cs.status-bar",
@@ -131,7 +150,7 @@ export function register_code_studio(xkin: XkinAPI, _parent_ctx: PluginContext) 
     permissions: ["ui", "files", "workspace"],
     activation: "on_load",
     activate(ctx) {
-      const StatusBar = create_status_bar(xkin);
+      const StatusBar = create_status_bar(xkin, project);
       ctx.contribute("status_bar", {
         id: "cs.status-bar",
         label: "Status Bar",
@@ -141,7 +160,7 @@ export function register_code_studio(xkin: XkinAPI, _parent_ctx: PluginContext) 
     },
   });
 
-  /* ── Keybindings & Commands ───────────────────── */
+  /* ── Keybindings & Commands ───────────────── */
 
   xkin.plugins.register({
     id: "cs.commands",
@@ -199,14 +218,14 @@ export function register_code_studio(xkin: XkinAPI, _parent_ctx: PluginContext) 
         },
       }));
 
-      // New file
+      // New file (part)
       disposables.push(xkin.keys.add({
         id: "cs.new-file",
         label: "New File",
         keys: "ctrl+n",
         run: async () => {
           const name = await xkin.ui.show_input("cs.commands", {
-            placeholder: "Enter file path (e.g., src/app.tsx)",
+            placeholder: "Enter file path (e.g., sidebar.tsx)",
           });
           if (name) {
             await xkin.files.create(name, "");
@@ -231,7 +250,19 @@ export function register_code_studio(xkin: XkinAPI, _parent_ctx: PluginContext) 
         },
       }));
 
+      // Build preview (Ctrl+Enter)
+      disposables.push(xkin.keys.add({
+        id: "cs.build",
+        label: "Build Preview",
+        keys: "ctrl+enter",
+        run: async () => {
+          await xkin.run_command("cs.build-preview");
+        },
+      }));
+
       ctx.subscriptions.push(...disposables);
     },
   });
+
+  return { project, registry };
 }

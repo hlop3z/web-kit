@@ -135,15 +135,15 @@ export function create_mock_xkin(): XkinAPI {
   /* ── File Registry ────────────────────────────── */
 
   const files = {
-    async create(path: string, content = "", _opts?: Record<string, unknown>) {
+    async create(path: string, content = "", opts?: Record<string, unknown>) {
       const entry: FileEntry = {
         path,
         language: infer_language(path),
-        main: false,
+        main: (opts?.main as boolean) ?? false,
         dirty: false,
         created_at: Date.now(),
         updated_at: Date.now(),
-        meta: {},
+        meta: (opts?.meta as Record<string, unknown>) ?? {},
       };
       file_contents.set(path, content);
       file_entries_map.set(path, entry);
@@ -250,7 +250,30 @@ export function create_mock_xkin(): XkinAPI {
         $active_file.set(open[open.length - 1] ?? null);
       }
     },
-    merge() { return ""; },
+    merge() {
+      const entries = [...file_entries_map.values()].filter(
+        (e) => e.language === "typescript" || e.language === "javascript",
+      );
+      const non_main = entries.filter((e) => !e.main);
+      const main_entry = entries.find((e) => e.main);
+      const parts: string[] = [];
+
+      for (const e of non_main) {
+        let src = file_contents.get(e.path) ?? "";
+        src = src
+          .replace(/^import\s+.*from\s+["']\.\/.+["'];?\s*$/gm, "")
+          .replace(/^export\s+(?=const |function |class |interface |type |enum )/gm, "");
+        parts.push(src.trim());
+      }
+
+      if (main_entry) {
+        let src = file_contents.get(main_entry.path) ?? "";
+        src = src.replace(/^import\s+.*from\s+["']\.\/.+["'];?\s*$/gm, "");
+        parts.push(src.trim());
+      }
+
+      return parts.join("\n\n");
+    },
     async format(_path: string) { return null; },
     async format_all() { return {}; },
     async clear() {
@@ -384,9 +407,54 @@ export function create_mock_xkin(): XkinAPI {
     perf_stats() { return {}; },
   } satisfies XkinAPI["plugins"];
 
-  /* ── Keys (stub) ──────────────────────────────── */
+  /* ── Keys (real DOM listeners) ─────────────────── */
 
   const bindings: Array<Record<string, unknown>> = [];
+
+  /** Parse "ctrl+s" → { ctrl: true, shift: false, alt: false, key: "s" } */
+  function parse_keys(combo: string) {
+    const parts = combo.toLowerCase().split("+");
+    return {
+      ctrl: parts.includes("ctrl") || parts.includes("mod"),
+      shift: parts.includes("shift"),
+      alt: parts.includes("alt"),
+      key: parts.filter((p) => !["ctrl", "shift", "alt", "mod"].includes(p))[0] || "",
+    };
+  }
+
+  function matches_event(e: KeyboardEvent, combo: string): boolean {
+    const parsed = parse_keys(combo);
+    const key = e.key.toLowerCase();
+    // Handle special key names
+    const key_match =
+      parsed.key === "tab" ? key === "tab" :
+      parsed.key === "escape" ? key === "escape" :
+      key === parsed.key;
+    return (
+      key_match &&
+      e.ctrlKey === parsed.ctrl &&
+      e.shiftKey === parsed.shift &&
+      e.altKey === parsed.alt
+    );
+  }
+
+  // Global keydown listener
+  const keydown_handler = (e: KeyboardEvent) => {
+    for (const binding of bindings) {
+      const combo = binding.keys as string;
+      if (combo && matches_event(e, combo)) {
+        e.preventDefault();
+        e.stopPropagation();
+        const run = binding.run as Function;
+        if (run) run(e);
+        return;
+      }
+    }
+  };
+
+  if (typeof document !== "undefined") {
+    document.addEventListener("keydown", keydown_handler);
+  }
 
   const keys = {
     add(binding: Record<string, unknown>) {
@@ -552,12 +620,45 @@ export function create_mock_xkin(): XkinAPI {
     set_compiler: noop,
 
     // Tools (stubs — no Babel/Prettier/Sass in dev)
-    async tsx(args) { return { code: args.source }; },
+    async tsx(args) {
+      // Minimal JSX→JS transform: replace <Tag ...> with h() calls
+      // Not a real transpiler — enough to make preview work in dev mode
+      let code = args.source;
+      // Strip TypeScript type annotations (simple cases)
+      code = code.replace(/:\s*(string|number|boolean|any|unknown|void|never)\b/g, "");
+      code = code.replace(/interface\s+\w+\s*\{[^}]*\}/g, "");
+      // Strip import type statements
+      code = code.replace(/^import\s+type\s+.*$/gm, "");
+      return { code };
+    },
     async format(args) { return args.source; },
     markdown(args) { return `<p>${args.source}</p>`; },
-    async mdx(args) { return { tree: null, symbols: [] }; },
+    async mdx(_args) {
+      // Minimal MDX: extract ui-* tags as symbols
+      const tag_re = /<((?:ui|layout|widget|app|data|form|nav|icon)-[\w-]+)/g;
+      const symbols: string[] = [];
+      let match;
+      while ((match = tag_re.exec(_args.source)) !== null) {
+        const tag = match[1];
+        const name = tag.slice(tag.indexOf("-") + 1);
+        if (!symbols.includes(name)) symbols.push(name);
+      }
+      return { tree: { type: "root", source: _args.source }, symbols };
+    },
     async sass(args) { return { css: args.source }; },
-    async css_modules(args) { return { css: args.source, tokens: {} }; },
+    async css_modules(args) {
+      // Extract class names from SCSS/CSS source and generate token map
+      const tokens: Record<string, string> = {};
+      const class_re = /\.([a-zA-Z_][\w-]*)\s*[{,]/g;
+      let match;
+      while ((match = class_re.exec(args.source)) !== null) {
+        const name = match[1];
+        if (!tokens[name]) {
+          tokens[name] = name; // In dev mode, class names pass through unscoped
+        }
+      }
+      return { css: args.source, tokens };
+    },
 
     // Utilities
     detect_language: infer_language,

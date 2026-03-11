@@ -27,76 +27,6 @@ const get_engine = () => globalThis.XkinEngine;
 
 const $types = atom([]);
 
-const VOID_RE = /(<(?:area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)\b[^>]*?)(?<!\/)>/gi;
-
-const html_to_jsx = (html, { strip_br = false } = {}) => {
-  let jsx = html.replace(VOID_RE, "$1 />");
-
-  // Remove <br /> tags (mdx mode)
-  if (strip_br) jsx = jsx.replace(/<br\s*\/?>/gi, "\n");
-
-  // class → className
-  jsx = jsx.replace(/\bclass=/g, "className=");
-
-  // for → htmlFor
-  jsx = jsx.replace(/\bfor=/g, "htmlFor=");
-
-  // style="..." → style={{ ... }}
-  jsx = jsx.replace(/\bstyle="([^"]*)"/g, (_, css) => {
-    const obj = css
-      .split(";")
-      .filter(Boolean)
-      .map((s) => {
-        const [k, ...v] = s.split(":");
-        const prop = k
-          .trim()
-          .replace(/-([a-z])/g, (__, c) => c.toUpperCase());
-        return `"${prop}":"${v.join(":").trim()}"`;
-      })
-      .join(",");
-    return `style={{${obj}}}`;
-  });
-
-  // checked (boolean attr without value)
-  jsx = jsx.replace(/\bchecked(?=[\s/>])/g, "checked={true}");
-  jsx = jsx.replace(/\bdisabled(?=[\s/>])/g, "disabled={true}");
-
-  // Remove <p> wrappers around block-level elements
-  const BLOCK = "details|summary|div|section|nav|aside|header|footer|main|figure|figcaption|dl|dt|dd|table|thead|tbody|tfoot|tr|th|td|ul|ol|li|blockquote|pre|form|fieldset|legend|address|article|hgroup";
-  // <p><block...> → <block...>
-  jsx = jsx.replace(new RegExp(`<p>\\s*(<(?:${BLOCK})[\\s>/])`, "gi"), "$1");
-  // </block></p> → </block>
-  jsx = jsx.replace(new RegExp(`(</(?:${BLOCK})>)\\s*</p>`, "gi"), "$1");
-  // <p></block> → </block>
-  jsx = jsx.replace(new RegExp(`<p>\\s*(</(?:${BLOCK})>)`, "gi"), "$1");
-  // <block></p> → <block>  (opening tag followed by stray </p>)
-  jsx = jsx.replace(new RegExp(`(<(?:${BLOCK})[^>]*>)\\s*</p>`, "gi"), "$1");
-
-  // Escape stray { } in text content, but NOT inside <pre> blocks
-  const PRE_RE = /<pre[\s>][\s\S]*?<\/pre>/gi;
-  const pres = [];
-  jsx = jsx.replace(PRE_RE, (m) => {
-    pres.push(m);
-    return `<!--PRE${pres.length - 1}-->`;
-  });
-
-  jsx = jsx.replace(/>([^<]*)</g, (_, text) => {
-    const escaped = text.replace(/\{/g, "{'{'}").replace(/\}/g, "{'}'}")
-    return `>${escaped}<`;
-  });
-
-  jsx = jsx.replace(/<!--PRE(\d+)-->/g, (_, i) => {
-    // Wrap code block content in a JSX expression string
-    const pre = pres[+i];
-    return pre.replace(/>([^<]*)</g, (__, txt) => {
-      if (!txt) return `>${txt}<`;
-      return `>{"${txt.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"}<`;
-    });
-  });
-
-  return jsx;
-};
-
 const to_file_uri = (p) => {
   if (p.startsWith("file:///")) return p;
   if (p.includes(":")) return p;
@@ -162,6 +92,182 @@ hook_system.add("file.after_create", (file) => {
   const lang = detect_language(file?.path);
   if (lang) plugin_registry.trigger_activation("on_language", lang);
 }, 100); // Low priority — runs after other hooks
+
+/* ── JSX Monarch Tokenizer ───────────────────────── */
+
+const _register_jsx_tokenizer = (monaco) => {
+  // Build a tokenizer that extends the default TypeScript one with JSX states.
+  // Based on Monaco's built-in TS tokenizer + JSX tag/attribute/expression rules.
+
+  const keywords = [
+    "abstract", "any", "as", "asserts", "bigint", "boolean", "break", "case",
+    "catch", "class", "continue", "const", "constructor", "debugger", "declare",
+    "default", "delete", "do", "else", "enum", "export", "extends", "false",
+    "finally", "for", "from", "function", "get", "if", "implements", "import",
+    "in", "infer", "instanceof", "interface", "is", "keyof", "let", "module",
+    "namespace", "never", "new", "null", "number", "object", "out", "package",
+    "private", "protected", "public", "override", "readonly", "require", "global",
+    "return", "satisfies", "set", "static", "string", "super", "switch", "symbol",
+    "this", "throw", "true", "try", "type", "typeof", "undefined", "unique",
+    "unknown", "var", "void", "while", "with", "yield", "async", "await", "of",
+  ];
+
+  const jsxLang = {
+    defaultToken: "invalid",
+    tokenPostfix: ".ts",
+    keywords,
+    operators: [
+      "<=", ">=", "==", "!=", "===", "!==", "=>", "+", "-", "**", "*", "/",
+      "%", "++", "--", "<<", "</", ">>", ">>>", "&", "|", "^", "!", "~",
+      "&&", "||", "??", "?", ":", "=", "+=", "-=", "*=", "**=", "/=", "%=",
+      "<<=", ">>=", ">>>=", "&=", "|=", "^=", "@",
+    ],
+    symbols: /[=><!~?:&|+\-*\/\^%]+/,
+    escapes: /\\(?:[abfnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
+    digits: /\d+(_+\d+)*/,
+    octaldigits: /[0-7]+(_+[0-7]+)*/,
+    binarydigits: /[0-1]+(_+[0-1]+)*/,
+    hexdigits: /[[0-9a-fA-F]+(_+[0-9a-fA-F]+)*/,
+    regexpctl: /[(){}\[\]\$\^|\-*+?\.]/,
+    regexpesc: /\\(?:[bBdDfnrstvwWn0\\\/]|@regexpctl|c[A-Z]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4})/,
+
+    tokenizer: {
+      root: [[/[{}]/, "delimiter.bracket"], { include: "common" }],
+
+      common: [
+        // JSX: self-closing tag  <Component />  or  <div />
+        [/(<)([\w$.-]+)(\s*)(\/)(>)/, ["delimiter", "tag", "", "delimiter", "delimiter"]],
+        // JSX: opening tag start  <Component  or  <div
+        [/(<)([\w$.-]+)/, ["delimiter", { token: "tag", next: "@jsxTag" }]],
+        // JSX: closing tag  </Component>  or  </div>
+        [/(<\/)([\w$.-]+)(\s*)(>)/, ["delimiter", "tag", "", "delimiter"]],
+
+        // identifiers and keywords
+        [/#?[a-z_$][\w$]*/, { cases: { "@keywords": "keyword", "@default": "identifier" } }],
+        [/[A-Z][\w\$]*/, "type.identifier"],
+        { include: "@whitespace" },
+        // regexp
+        [/\/(?=([^\\\/]|\\.)+\/([dgimsuy]*)(\s*)(\.|;|,|\)|\]|\}|$))/, { token: "regexp", bracket: "@open", next: "@regexp" }],
+        // delimiters and operators
+        [/[()\[\]]/, "@brackets"],
+        [/[<>](?!@symbols)/, "@brackets"],
+        [/!(?=([^=]|$))/, "delimiter"],
+        [/@symbols/, { cases: { "@operators": "delimiter", "@default": "" } }],
+        // numbers
+        [/(@digits)[eE]([\-+]?(@digits))?/, "number.float"],
+        [/(@digits)\.(@digits)([eE][\-+]?(@digits))?/, "number.float"],
+        [/0[xX](@hexdigits)n?/, "number.hex"],
+        [/0[oO]?(@octaldigits)n?/, "number.octal"],
+        [/0[bB](@binarydigits)n?/, "number.binary"],
+        [/(@digits)n?/, "number"],
+        [/[;,.]/, "delimiter"],
+        // strings
+        [/"([^"\\]|\\.)*$/, "string.invalid"],
+        [/'([^'\\]|\\.)*$/, "string.invalid"],
+        [/"/, "string", "@string_double"],
+        [/'/, "string", "@string_single"],
+        [/`/, "string", "@string_backtick"],
+      ],
+
+      // JSX tag attributes:  <div className="foo" onClick={handler}>
+      jsxTag: [
+        [/\s+/, ""],
+        [/([\w$.-]+)(\s*)(=)/, ["attribute.name", "", "delimiter"]],
+        [/"[^"]*"/, "attribute.value"],
+        [/'[^']*'/, "attribute.value"],
+        [/\{/, { token: "delimiter.bracket", next: "@jsxExpr" }],
+        [/\/\s*>/, { token: "delimiter", next: "@pop" }],          // self-close
+        [/>/, { token: "delimiter", next: "@jsxContent" }],         // open → content
+        [/[\w$.-]+/, "attribute.name"],
+      ],
+
+      // JSX expression:  {expression}
+      jsxExpr: [
+        [/\{/, "delimiter.bracket", "@jsxExpr"],
+        [/\}/, "delimiter.bracket", "@pop"],
+        { include: "common" },
+      ],
+
+      // JSX content between tags:  <div>...content...</div>
+      jsxContent: [
+        // Nested opening tag
+        [/(<)([\w$.-]+)/, ["delimiter", { token: "tag", next: "@jsxTag" }]],
+        // Closing tag — pop back out
+        [/(<\/)([\w$.-]+)(\s*)(>)/, ["delimiter", "tag", "", { token: "delimiter", next: "@pop" }]],
+        // Expression in content  {expr}
+        [/\{/, { token: "delimiter.bracket", next: "@jsxExpr" }],
+        // Text content
+        [/[^<{]+/, ""],
+      ],
+
+      whitespace: [
+        [/[ \t\r\n]+/, ""],
+        [/\/\*\*(?!\/)/, "comment.doc", "@jsdoc"],
+        [/\/\*/, "comment", "@comment"],
+        [/\/\/.*$/, "comment"],
+      ],
+      comment: [
+        [/[^\/*]+/, "comment"],
+        [/\*\//, "comment", "@pop"],
+        [/[\/*]/, "comment"],
+      ],
+      jsdoc: [
+        [/[^\/*]+/, "comment.doc"],
+        [/\*\//, "comment.doc", "@pop"],
+        [/[\/*]/, "comment.doc"],
+      ],
+      regexp: [
+        [/(\{)(\d+(?:,\d*)?)(\})/, ["regexp.escape.control", "regexp.escape.control", "regexp.escape.control"]],
+        [/(\[)(\^?)(?=(?:[^\]\\\/]|\\.)+)/, ["regexp.escape.control", { token: "regexp.escape.control", next: "@regexrange" }]],
+        [/(\()(\?:|\?=|\?!)/, ["regexp.escape.control", "regexp.escape.control"]],
+        [/[()]/, "regexp.escape.control"],
+        [/@regexpctl/, "regexp.escape.control"],
+        [/[^\\\/]/, "regexp"],
+        [/@regexpesc/, "regexp.escape"],
+        [/\\\./, "regexp.invalid"],
+        [/(\/)([dgimsuy]*)/, [{ token: "regexp", bracket: "@close", next: "@pop" }, "keyword.other"]],
+      ],
+      regexrange: [
+        [/-/, "regexp.escape.control"],
+        [/\^/, "regexp.invalid"],
+        [/@regexpesc/, "regexp.escape"],
+        [/[^\]]/, "regexp"],
+        [/\]/, { token: "regexp.escape.control", next: "@pop", bracket: "@close" }],
+      ],
+      string_double: [
+        [/[^\\"]+/, "string"],
+        [/@escapes/, "string.escape"],
+        [/\\./, "string.escape.invalid"],
+        [/"/, "string", "@pop"],
+      ],
+      string_single: [
+        [/[^\\']+/, "string"],
+        [/@escapes/, "string.escape"],
+        [/\\./, "string.escape.invalid"],
+        [/'/, "string", "@pop"],
+      ],
+      string_backtick: [
+        [/\$\{/, { token: "delimiter.bracket", next: "@bracketCounting" }],
+        [/[^\\`$]+/, "string"],
+        [/@escapes/, "string.escape"],
+        [/\\./, "string.escape.invalid"],
+        [/`/, "string", "@pop"],
+      ],
+      bracketCounting: [
+        [/\{/, "delimiter.bracket", "@bracketCounting"],
+        [/\}/, "delimiter.bracket", "@pop"],
+        { include: "common" },
+      ],
+    },
+  };
+
+  // Monaco's built-in TS/JS uses a semantic tokenizer that overrides Monarch.
+  // We override it by registering our Monarch tokenizer for TS/JS and telling
+  // the editor to prefer Monarch via "semanticHighlighting.enabled": false.
+  monaco.languages.setMonarchTokensProvider("typescript", jsxLang);
+  monaco.languages.setMonarchTokensProvider("javascript", { ...jsxLang, tokenPostfix: ".js" });
+
+};
 
 class Xkin {
   static $types = $types;
@@ -230,6 +336,12 @@ class Xkin {
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions(compilerOpts);
     monaco.languages.typescript.javascriptDefaults.setCompilerOptions(compilerOpts);
 
+    // Register JSX-aware Monarch tokenizer (once)
+    if (!Xkin._jsx_tokenizer_registered) {
+      Xkin._jsx_tokenizer_registered = true;
+      _register_jsx_tokenizer(monaco);
+    }
+
     // Use a .tsx/.jsx URI so Monaco enables JSX support
     const ext = { typescript: "tsx", javascript: "jsx" }[language] || language;
     const uid = `${Date.now()}_${Math.random().toString(36).slice(8)}`
@@ -244,6 +356,9 @@ class Xkin {
       scrollBeyondLastLine: scroll_beyond,
       fontSize: font_size,
       automaticLayout: auto_layout,
+      // Disable semantic highlighting so our Monarch JSX tokenizer takes effect
+      // (Monaco's built-in TS semantic tokenizer would otherwise override it)
+      "semanticHighlighting.enabled": false,
       ...opts,
     });
 
@@ -354,21 +469,21 @@ class Xkin {
     return get_tools().markdown(args);
   }
 
-  static async mdx({ source, md = {} }) {
+  static mdx({ source, md = {} }) {
     const html = get_tools().markdown({ source, options: md });
-    const jsx = html_to_jsx(html, { strip_br: true });
-    const wrapped = `const __mdx__ = (<>${jsx}</>);`;
-    const { code } = await get_tools().tsx({ source: wrapped });
+    const doc = new DOMParser().parseFromString(html, "text/html");
 
-    const symbols = new Set();
-    const h = (tag, props, ...children) => {
-      const node = { tag, props: props || {}, children: children.flat() };
-      if (typeof tag === "string" && tag.startsWith("ui-")) symbols.add(tag.slice(3));
-      return node;
+    const walk = (node) => {
+      if (node.nodeType === 3) return { tag: "#text", props: {}, children: [node.textContent] };
+      if (node.nodeType !== 1) return null;
+      if (node.tagName === "BR") return null;
+      const props = {};
+      for (const a of node.attributes) props[a.name] = a.value;
+      const children = [...node.childNodes].map(walk).filter(Boolean);
+      return { tag: node.tagName.toLowerCase(), props, children };
     };
-    const Fragment = ({ children }) => children;
-    const tree = new Function("h", "Fragment", `${code}\nreturn __mdx__;`)(h, Fragment);
-    return { tree, symbols: [...symbols] };
+
+    return [...doc.body.childNodes].map(walk).filter(Boolean);
   }
 
   /* ── Engine (Preact) ────────────────────────────── */
