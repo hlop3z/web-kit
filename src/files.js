@@ -20,7 +20,7 @@ const LANG_MAP = {
   ts: "typescript",
   mts: "typescript",
   cts: "typescript",
-  tsx: "typescript",
+  tsx: "typescriptreact",
   json: "json",
   html: "html",
   htm: "html",
@@ -127,7 +127,7 @@ const build_tree = (entries) => {
 
 /* ── File Registry ────────────────────────────────── */
 
-const create_file_registry = (hooks) => {
+const create_file_registry = () => {
   const emitter = create_emitter();
   const content_disposables = new Map();
   const clean_snapshots = new Map();
@@ -143,14 +143,8 @@ const create_file_registry = (hooks) => {
   const files = {
     /* ── CRUD ─────────────────────────────────────── */
 
-    async create(path, content = "", { main = false, language, meta = {} } = {}) {
+    create(path, content = "", { main = false, language, meta = {} } = {}) {
       path = normalize_path(path);
-
-      // Hook: filter content before creation
-      if (hooks) {
-        content = await hooks.fire("file.before_create", content, { path, options: { main, language, meta } });
-      }
-
       const monaco = get_editor();
       const lang = language || infer_language(path);
       const uri = monaco.Uri.parse(to_ws_uri(get_ws_id(), path));
@@ -195,7 +189,6 @@ const create_file_registry = (hooks) => {
       $files.set(entries);
 
       emitter.emit("create", { path, entry });
-      if (hooks) hooks.fire("file.after_create", { path, entry });
       return model;
     },
 
@@ -207,14 +200,8 @@ const create_file_registry = (hooks) => {
       return model ? model.getValue() : null;
     },
 
-    async update(path, content) {
+    update(path, content) {
       path = normalize_path(path);
-
-      // Hook: filter content before update
-      if (hooks) {
-        content = await hooks.fire("file.before_update", content, { path });
-      }
-
       const monaco = get_editor();
       const uri = monaco.Uri.parse(to_ws_uri(get_ws_id(), path));
       const model = monaco.editor.getModel(uri);
@@ -229,16 +216,11 @@ const create_file_registry = (hooks) => {
       );
 
       emitter.emit("update", { path });
-      if (hooks) hooks.fire("file.after_update", { path });
       return model;
     },
 
-    async delete(path) {
+    delete(path) {
       path = normalize_path(path);
-
-      // Hook: action before delete
-      if (hooks) await hooks.fire("file.before_delete", { path });
-
       const monaco = get_editor();
       const uri = monaco.Uri.parse(to_ws_uri(get_ws_id(), path));
       const model = monaco.editor.getModel(uri);
@@ -265,7 +247,6 @@ const create_file_registry = (hooks) => {
       }
 
       emitter.emit("delete", { path });
-      if (hooks) hooks.fire("file.after_delete", { path });
     },
 
     get(path) {
@@ -293,15 +274,9 @@ const create_file_registry = (hooks) => {
 
     /* ── Navigation ───────────────────────────────── */
 
-    async rename(old_path, new_path) {
+    rename(old_path, new_path) {
       old_path = normalize_path(old_path);
       new_path = normalize_path(new_path);
-
-      // Hook: filter new path before rename
-      if (hooks) {
-        new_path = await hooks.fire("file.before_rename", new_path, { old_path });
-      }
-
       const content = files.read(old_path);
       if (content === null) return null;
 
@@ -317,8 +292,8 @@ const create_file_registry = (hooks) => {
       const was_active = $active_file.get() === old_path;
       const prev_open = [...$open_files.get()];
 
-      await files.delete(old_path);
-      const model = await files.create(new_path, content, opts);
+      files.delete(old_path);
+      const model = files.create(new_path, content, opts);
 
       if (vs) view_states.set(view_key(new_path), vs);
 
@@ -331,11 +306,10 @@ const create_file_registry = (hooks) => {
       }
 
       emitter.emit("rename", { old_path, new_path });
-      if (hooks) hooks.fire("file.after_rename", { old_path, new_path });
       return model;
     },
 
-    async move(old_path, new_path) {
+    move(old_path, new_path) {
       return files.rename(old_path, new_path);
     },
 
@@ -380,23 +354,23 @@ const create_file_registry = (hooks) => {
       return [...dir_set].filter((d) => d.startsWith(prefix)).sort();
     },
 
-    async delete_dir(dir_path) {
+    delete_dir(dir_path) {
       dir_path = normalize_path(dir_path);
       const prefix = dir_path === "/" ? "/" : dir_path + "/";
       const entries = $files.get().filter((e) => e.path.startsWith(prefix));
       for (const e of entries) {
-        await files.delete(e.path);
+        files.delete(e.path);
       }
     },
 
-    async rename_dir(old_dir, new_dir) {
+    rename_dir(old_dir, new_dir) {
       old_dir = normalize_path(old_dir);
       new_dir = normalize_path(new_dir);
       const prefix = old_dir + "/";
       const entries = $files.get().filter((e) => e.path.startsWith(prefix));
       for (const e of entries) {
         const new_path = new_dir + e.path.slice(old_dir.length);
-        await files.rename(e.path, new_path);
+        files.rename(e.path, new_path);
       }
     },
 
@@ -467,15 +441,11 @@ const create_file_registry = (hooks) => {
         files.save_view_state(current, editor_instance);
       }
 
-      if (editor_instance) {
-        editor_instance.setModel(model);
-      }
+      editor_instance.setModel(model);
       $active_file.set(path);
 
       // Restore view state for new file
-      if (editor_instance) {
-        files.restore_view_state(path, editor_instance);
-      }
+      files.restore_view_state(path, editor_instance);
 
       // Ensure it's in open files
       const open = $open_files.get();
@@ -541,13 +511,11 @@ const create_file_registry = (hooks) => {
       const parser =
         opts.parser || (entry && /\.tsx?$/.test(entry.path) ? "typescript" : "babel");
 
-      // Hook: filter format options
-      let format_opts = { source: content, parser, ...opts };
-      if (hooks) {
-        format_opts = await hooks.fire("file.before_format", format_opts, { path, content });
-      }
-
-      const formatted = await tools.format(format_opts);
+      const formatted = await tools.format({
+        source: content,
+        parser,
+        ...opts,
+      });
 
       // Undo-safe format
       const model = files.get(path);
@@ -561,7 +529,6 @@ const create_file_registry = (hooks) => {
       }
 
       emitter.emit("update", { path });
-      if (hooks) hooks.fire("file.after_format", { path, formatted });
       return formatted;
     },
 
@@ -575,10 +542,10 @@ const create_file_registry = (hooks) => {
       return results;
     },
 
-    async clear() {
+    clear() {
       const entries = $files.get();
       for (const f of entries) {
-        await files.delete(f.path);
+        files.delete(f.path);
       }
       emitter.clear();
     },

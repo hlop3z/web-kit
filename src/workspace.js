@@ -12,7 +12,7 @@ const get_editor = () => globalThis.XkinEditor;
 
 /* ── Workspace Manager ────────────────────────────── */
 
-const create_workspace_manager = (file_registry, hooks) => {
+const create_workspace_manager = (file_registry) => {
   const emitter = create_emitter();
   const workspaces = new Map();
   const snapshots = new Map();
@@ -27,7 +27,7 @@ const create_workspace_manager = (file_registry, hooks) => {
   };
 
   const ws = {
-    async create(id, { name = id, meta = {}, activate = true } = {}) {
+    create(id, { name = id, meta = {}, activate = true } = {}) {
       const now = Date.now();
       const workspace = {
         id,
@@ -43,7 +43,7 @@ const create_workspace_manager = (file_registry, hooks) => {
         const current = $workspace.get();
         if (current) {
           snapshots.set(current.id, ws.snapshot());
-          await file_registry.clear();
+          file_registry.clear();
         }
         $workspace.set(workspace);
         $files.set([]);
@@ -65,13 +65,10 @@ const create_workspace_manager = (file_registry, hooks) => {
       const current = $workspace.get();
       if (current && current.id === id) return target;
 
-      // Hook: action before switch
-      if (hooks) await hooks.fire("workspace.before_switch", { from_id: current?.id, to_id: id });
-
       // Snapshot current
       if (current) {
         snapshots.set(current.id, ws.snapshot());
-        await file_registry.clear();
+        file_registry.clear();
       }
 
       // Restore target
@@ -87,7 +84,6 @@ const create_workspace_manager = (file_registry, hooks) => {
       }
 
       emitter.emit("switch", { workspace: target });
-      if (hooks) hooks.fire("workspace.after_switch", { workspace: target });
       return target;
     },
 
@@ -109,7 +105,7 @@ const create_workspace_manager = (file_registry, hooks) => {
     async delete(id) {
       const current = $workspace.get();
       if (current && current.id === id) {
-        await file_registry.clear();
+        file_registry.clear();
         $workspace.set(null);
         $files.set([]);
         $active_file.set(null);
@@ -179,7 +175,7 @@ const create_workspace_manager = (file_registry, hooks) => {
         const current = $workspace.get();
         if (current) {
           snapshots.set(current.id, ws.snapshot());
-          await file_registry.clear();
+          file_registry.clear();
         }
       }
 
@@ -193,7 +189,7 @@ const create_workspace_manager = (file_registry, hooks) => {
       // Recreate files
       for (const entry of snap.entries) {
         const content = snap.files[entry.path] || "";
-        await file_registry.create(entry.path, content, {
+        file_registry.create(entry.path, content, {
           main: entry.main,
           language: entry.language,
           meta: entry.meta,
@@ -227,10 +223,10 @@ const create_workspace_manager = (file_registry, hooks) => {
     },
 
     async from_json(id, file_map, { name = id, meta = {} } = {}) {
-      const workspace = await ws.create(id, { name, meta, activate: true });
+      const workspace = ws.create(id, { name, meta, activate: true });
 
       for (const [path, content] of Object.entries(file_map)) {
-        await file_registry.create(path, content);
+        file_registry.create(path, content);
       }
 
       return workspace;
@@ -251,17 +247,9 @@ const create_workspace_manager = (file_registry, hooks) => {
     async save() {
       if (format_on_save) await run_format();
       if (!persistence_adapter) return;
-      let snap = ws.snapshot();
+      const snap = ws.snapshot();
       if (!snap) return;
-
-      // Hook: filter snapshot before save
-      if (hooks) {
-        snap = await hooks.fire("workspace.before_save", snap);
-      }
-
       await persistence_adapter.save(snap.workspace.id, snap);
-
-      if (hooks) hooks.fire("workspace.after_save", { workspace: snap.workspace });
     },
 
     auto_save({ interval = 30_000, on_save } = {}) {

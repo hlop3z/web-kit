@@ -96,50 +96,50 @@ describe("build_tree", () => {
 describe("files CRUD", () => {
   const ctx = use_files();
 
-  it("create / read / update / delete cycle", async () => {
+  it("create / read / update / delete cycle", () => {
     const { files } = ctx;
-    await files.create("/a.ts", "old");
+    files.create("/a.ts", "old");
     expect(files.read("/a.ts")).toBe("old");
     expect($files.get()).toHaveLength(1);
     expect($files.get()[0].language).toBe("typescript");
 
-    await files.update("/a.ts", "new");
+    files.update("/a.ts", "new");
     expect(files.read("/a.ts")).toBe("new");
 
-    await files.delete("/a.ts");
+    files.delete("/a.ts");
     expect($files.get()).toHaveLength(0);
     expect(files.get("/a.ts")).toBeNull();
   });
 
-  it("create infers language, accepts options", async () => {
+  it("create infers language, accepts options", () => {
     const { files } = ctx;
-    await files.create("/s.css", "body{}");
+    files.create("/s.css", "body{}");
     expect($files.get()[0].language).toBe("css");
 
-    await files.create("/f.txt", "", { language: "json", main: true, meta: { v: 1 } });
+    files.create("/f.txt", "", { language: "json", main: true, meta: { v: 1 } });
     const e = files.entry("/f.txt");
     expect(e.language).toBe("json");
     expect(e.main).toBe(true);
     expect(e.meta).toEqual({ v: 1 });
   });
 
-  it("create overwrites existing, normalizes path", async () => {
+  it("create overwrites existing, normalizes path", () => {
     const { files } = ctx;
-    await files.create("src/f.js", "old");
-    await files.create("src/f.js", "new");
+    files.create("src/f.js", "old");
+    files.create("src/f.js", "new");
     expect($files.get()).toHaveLength(1);
     expect(files.read("/src/f.js")).toBe("new");
   });
 
-  it("read / update return null for missing", async () => {
+  it("read / update return null for missing", () => {
     const { files } = ctx;
     expect(files.read("/nope")).toBeNull();
-    expect(await files.update("/nope", "x")).toBeNull();
+    expect(files.update("/nope", "x")).toBeNull();
   });
 
-  it("entry returns metadata, set_meta merges", async () => {
+  it("entry returns metadata, set_meta merges", () => {
     const { files } = ctx;
-    await files.create("/a.ts", "", { meta: { x: 1 } });
+    files.create("/a.ts", "", { meta: { x: 1 } });
     expect(files.entry("/a.ts").meta).toEqual({ x: 1 });
     files.set_meta("/a.ts", { y: 2 });
     expect(files.entry("/a.ts").meta).toEqual({ x: 1, y: 2 });
@@ -152,13 +152,13 @@ describe("files CRUD", () => {
 describe("rename / move", () => {
   const ctx = use_files();
 
-  it("renames, preserves props, updates open/active", async () => {
+  it("renames, preserves props, updates open/active", () => {
     const { files } = ctx;
-    await files.create("/old.ts", "code", { main: true, meta: { x: 1 } });
+    files.create("/old.ts", "code", { main: true, meta: { x: 1 } });
     files.open("/old.ts");
     $active_file.set("/old.ts");
 
-    await files.rename("/old.ts", "/new.ts");
+    files.rename("/old.ts", "/new.ts");
     expect(files.read("/new.ts")).toBe("code");
     expect(files.read("/old.ts")).toBeNull();
     expect(files.entry("/new.ts").main).toBe(true);
@@ -166,15 +166,15 @@ describe("rename / move", () => {
     expect($active_file.get()).toBe("/new.ts");
   });
 
-  it("move is alias for rename", async () => {
+  it("move is alias for rename", () => {
     const { files } = ctx;
-    await files.create("/a.ts", "x");
-    await files.move("/a.ts", "/b.ts");
+    files.create("/a.ts", "x");
+    files.move("/a.ts", "/b.ts");
     expect(files.read("/b.ts")).toBe("x");
   });
 
-  it("rename returns null for missing", async () => {
-    expect(await ctx.files.rename("/nope", "/x")).toBeNull();
+  it("rename returns null for missing", () => {
+    expect(ctx.files.rename("/nope", "/x")).toBeNull();
   });
 });
 
@@ -183,24 +183,24 @@ describe("rename / move", () => {
 describe("directory operations", () => {
   const ctx = use_files();
 
-  const seed = async () => {
+  const seed = () => {
     const { files } = ctx;
-    await files.create("/src/App.tsx", "app");
-    await files.create("/src/index.ts", "idx");
-    await files.create("/src/utils/math.ts", "math");
-    await files.create("/README.md", "rm");
+    files.create("/src/App.tsx", "app");
+    files.create("/src/index.ts", "idx");
+    files.create("/src/utils/math.ts", "math");
+    files.create("/README.md", "rm");
   };
 
-  it("list: all, filtered, with depth", async () => {
-    await seed();
+  it("list: all, filtered, with depth", () => {
+    seed();
     const { files } = ctx;
     expect(files.list()).toHaveLength(4);
     expect(files.list("/src")).toHaveLength(3);
     expect(files.list("/src", { depth: 1 })).toHaveLength(2);
   });
 
-  it("dirs: all and sub-directory", async () => {
-    await seed();
+  it("dirs: all and sub-directory", () => {
+    seed();
     const { files } = ctx;
     const all = files.dirs();
     expect(all).toContain("/src");
@@ -208,16 +208,16 @@ describe("directory operations", () => {
     expect(files.dirs("/src")).toEqual(["/src/utils"]);
   });
 
-  it("delete_dir removes directory contents", async () => {
-    await seed();
-    await ctx.files.delete_dir("/src");
+  it("delete_dir removes directory contents", () => {
+    seed();
+    ctx.files.delete_dir("/src");
     expect($files.get()).toHaveLength(1);
     expect($files.get()[0].path).toBe("/README.md");
   });
 
-  it("rename_dir moves files", async () => {
-    await seed();
-    await ctx.files.rename_dir("/src/utils", "/src/helpers");
+  it("rename_dir moves files", () => {
+    seed();
+    ctx.files.rename_dir("/src/utils", "/src/helpers");
     expect(ctx.files.read("/src/helpers/math.ts")).toBe("math");
     expect(ctx.files.read("/src/utils/math.ts")).toBeNull();
   });
@@ -228,9 +228,9 @@ describe("directory operations", () => {
 describe("dirty tracking", () => {
   const ctx = use_files();
 
-  it("starts clean, becomes dirty on change, resets", async () => {
+  it("starts clean, becomes dirty on change, resets", () => {
     const { files } = ctx;
-    await files.create("/a.ts", "code");
+    files.create("/a.ts", "code");
     expect(files.is_dirty("/a.ts")).toBe(false);
     expect($is_dirty.get()).toBe(false);
 
@@ -242,10 +242,10 @@ describe("dirty tracking", () => {
     expect(files.is_dirty("/a.ts")).toBe(false);
   });
 
-  it("mark_all_clean resets every file", async () => {
+  it("mark_all_clean resets every file", () => {
     const { files } = ctx;
-    await files.create("/a.ts", "a");
-    await files.create("/b.ts", "b");
+    files.create("/a.ts", "a");
+    files.create("/b.ts", "b");
     files.get("/a.ts").setValue("x");
     files.get("/b.ts").setValue("y");
     files.mark_all_clean();
@@ -258,15 +258,15 @@ describe("dirty tracking", () => {
 describe("file events", () => {
   const ctx = use_files();
 
-  it("fires create, update, delete, rename events", async () => {
+  it("fires create, update, delete, rename events", () => {
     const { files } = ctx;
     const log = [];
     files.on("*", (d) => log.push(d.event));
 
-    await files.create("/a.ts", "code");
-    await files.update("/a.ts", "new");
-    await files.rename("/a.ts", "/b.ts"); // emits delete + create + rename
-    await files.delete("/b.ts");
+    files.create("/a.ts", "code");
+    files.update("/a.ts", "new");
+    files.rename("/a.ts", "/b.ts"); // emits delete + create + rename
+    files.delete("/b.ts");
 
     expect(log).toContain("create");
     expect(log).toContain("update");
@@ -274,13 +274,13 @@ describe("file events", () => {
     expect(log).toContain("delete");
   });
 
-  it("dispose stops listener", async () => {
+  it("dispose stops listener", () => {
     const { files } = ctx;
     const log = [];
     const d = files.on("create", () => log.push(1));
-    await files.create("/a.ts", "");
+    files.create("/a.ts", "");
     d();
-    await files.create("/b.ts", "");
+    files.create("/b.ts", "");
     expect(log).toHaveLength(1);
   });
 });
@@ -290,9 +290,9 @@ describe("file events", () => {
 describe("tabs (open / close / set_active)", () => {
   const ctx = use_files();
 
-  it("open / close manages $open_files", async () => {
+  it("open / close manages $open_files", () => {
     const { files } = ctx;
-    await files.create("/a.ts", "");
+    files.create("/a.ts", "");
     files.open("/a.ts");
     files.open("/a.ts"); // no dupe
     expect($open_files.get()).toEqual(["/a.ts"]);
@@ -301,32 +301,32 @@ describe("tabs (open / close / set_active)", () => {
     expect($open_files.get()).toHaveLength(0);
   });
 
-  it("set_active sets model and updates stores", async () => {
+  it("set_active sets model and updates stores", () => {
     const { files } = ctx;
-    await files.create("/a.ts", "a");
-    await files.create("/b.ts", "b");
+    files.create("/a.ts", "a");
+    files.create("/b.ts", "b");
     const ed = mock_editor();
     files.set_active("/b.ts", ed);
     expect($active_file.get()).toBe("/b.ts");
     expect($open_files.get()).toContain("/b.ts");
   });
 
-  it("close active tab falls back to previous", async () => {
+  it("close active tab falls back to previous", () => {
     const { files } = ctx;
-    await files.create("/a.ts", "");
-    await files.create("/b.ts", "");
+    files.create("/a.ts", "");
+    files.create("/b.ts", "");
     $open_files.set(["/a.ts", "/b.ts"]);
     $active_file.set("/b.ts");
     files.close("/b.ts");
     expect($active_file.get()).toBeNull(); // no editor instance => null
   });
 
-  it("delete clears from tabs", async () => {
+  it("delete clears from tabs", () => {
     const { files } = ctx;
-    await files.create("/a.ts", "");
+    files.create("/a.ts", "");
     files.open("/a.ts");
     $active_file.set("/a.ts");
-    await files.delete("/a.ts");
+    files.delete("/a.ts");
     expect($open_files.get()).toHaveLength(0);
     expect($active_file.get()).toBeNull();
   });
@@ -337,10 +337,10 @@ describe("tabs (open / close / set_active)", () => {
 describe("reactive stores", () => {
   const ctx = use_files();
 
-  it("$file_tree, $active_entry", async () => {
+  it("$file_tree, $active_entry", () => {
     const { files } = ctx;
-    await files.create("/src/App.tsx", "");
-    await files.create("/index.ts", "");
+    files.create("/src/App.tsx", "");
+    files.create("/index.ts", "");
     expect($file_tree.get()).toHaveLength(2);
 
     $active_file.set("/index.ts");
@@ -356,10 +356,10 @@ describe("reactive stores", () => {
 describe("merge", () => {
   const ctx = use_files();
 
-  it("non-main before main, strips imports, supports filter", async () => {
+  it("non-main before main, strips imports, supports filter", () => {
     const { files } = ctx;
-    await files.create("/h.ts", 'import { x } from "y";\nconst h = 1;');
-    await files.create("/m.ts", "const m = 2;", { main: true });
+    files.create("/h.ts", 'import { x } from "y";\nconst h = 1;');
+    files.create("/m.ts", "const m = 2;", { main: true });
 
     const merged = files.merge();
     expect(merged).not.toContain("import");
@@ -375,7 +375,7 @@ describe("format", () => {
 
   it("formats via tools, undo-safe, handles missing", async () => {
     const { files } = ctx;
-    await files.create("/a.ts", "  code  ");
+    files.create("/a.ts", "  code  ");
     expect(await files.format("/a.ts")).toBe("code\n");
     expect(files.read("/a.ts")).toBe("code\n");
     expect(await files.format("/nope")).toBeNull();
@@ -383,8 +383,8 @@ describe("format", () => {
 
   it("format_all formats every file", async () => {
     const { files } = ctx;
-    await files.create("/a.ts", "  a  ");
-    await files.create("/b.ts", "  b  ");
+    files.create("/a.ts", "  a  ");
+    files.create("/b.ts", "  b  ");
     const r = await files.format_all();
     expect(r["/a.ts"]).toBe("a\n");
     expect(r["/b.ts"]).toBe("b\n");
@@ -396,10 +396,10 @@ describe("format", () => {
 describe("clear", () => {
   const ctx = use_files();
 
-  it("removes all files", async () => {
-    await ctx.files.create("/a.ts", "");
-    await ctx.files.create("/b.ts", "");
-    await ctx.files.clear();
+  it("removes all files", () => {
+    ctx.files.create("/a.ts", "");
+    ctx.files.create("/b.ts", "");
+    ctx.files.clear();
     expect($files.get()).toHaveLength(0);
   });
 });

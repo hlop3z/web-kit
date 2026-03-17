@@ -5,6 +5,5 @@ Thumbs.db
 *.log
 
 # Custom
-.legacy/
 backend/
-plan-*.md
+.legacy/

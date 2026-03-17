@@ -47,7 +47,6 @@
   "packageManager": "pnpm@10.23.0",
   "dependencies": {
     "@babel/standalone": "7.29.1",
-    "@dnd-kit/dom": "^0.3.2",
     "csso": "5.0.5",
     "monaco-editor": "0.55.1",
     "nanostores": "1.1.1",
