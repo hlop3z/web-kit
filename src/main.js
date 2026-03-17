@@ -1,19 +1,5 @@
 import * as nano from "nanostores";
 import { atom } from "nanostores";
-import {
-  create_file_registry,
-  $workspace,
-  $files,
-  $active_file,
-  $open_files,
-  $file_tree,
-  $is_dirty,
-  $dirty_files,
-  $active_entry,
-} from "./files.js";
-import { create_workspace_manager } from "./workspace.js";
-import persistence from "./persistence.js";
-import { create_keys_manager } from "./keys.js";
 
 const get_editor = () => globalThis.XkinEditor;
 const get_tools = () => globalThis.XkinTools;
@@ -81,7 +67,7 @@ const html_to_jsx = (html, { strip_br = false } = {}) => {
   });
 
   jsx = jsx.replace(/<!--PRE(\d+)-->/g, (_, i) => {
-    // Wrap code block content in a JSX expression string
+    // Wrap code block contents in a JSX expression string
     const pre = pres[+i];
     return pre.replace(/>([^<]*)</g, (__, txt) => {
       if (!txt) return `>${txt}<`;
@@ -123,28 +109,8 @@ const sync_types = (libs) => {
 
 /* ── Initialize modules ───────────────────────────── */
 
-const file_registry = create_file_registry();
-const workspace_manager = create_workspace_manager(file_registry);
-const keys_manager = create_keys_manager();
-
 class Xkin {
   static $types = $types;
-
-  /* ── New API: Workspace + Files + Keys ──────────── */
-
-  static $workspace = $workspace;
-  static $files = $files;
-  static $active_file = $active_file;
-  static $open_files = $open_files;
-  static $file_tree = $file_tree;
-  static $is_dirty = $is_dirty;
-  static $dirty_files = $dirty_files;
-  static $active_entry = $active_entry;
-
-  static workspace = workspace_manager;
-  static files = file_registry;
-  static persistence = persistence;
-  static keys = keys_manager;
 
   /* ── Editor ──────────────────────────────────────── */
 
@@ -195,9 +161,6 @@ class Xkin {
       ...opts,
     });
 
-    // Wire up keybindings to this editor
-    keys_manager._set_editor(editor_instance);
-
     return editor_instance;
   }
 
@@ -207,6 +170,17 @@ class Xkin {
 
   static set_language(model, language) {
     get_editor().editor.setModelLanguage(model, language);
+  }
+
+  static set_content(editor, content) {
+    const model = editor.getModel();
+    if (!model) return;
+    const full_range = model.getFullModelRange();
+    editor.executeEdits("xkin", [{
+      range: full_range,
+      text: content,
+    }]);
+    editor.pushUndoStop();
   }
 
   /* ── Models (virtual file system) ────────────────── */
